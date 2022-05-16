@@ -33,10 +33,10 @@ product.get("/",authenticated,async (req, res) => {
 
 // create a new product by admin only
 product.post("/create",authenticated,upload.single("image"),async (req, res) => {
-    const {id} = req.session.user
+    const {_id} = req.session.user
     const {name,price,description,category} = req.body;
     const image = req.file.path;
-    const isAdmin = await Admin.findById(id);
+    const isAdmin = await Admin.findById(_id);
     if(!isAdmin){
         return res.status(400).send({msg:"You are not an admin"})
     }
@@ -54,9 +54,9 @@ product.post("/create",authenticated,upload.single("image"),async (req, res) => 
     });
     await newProduct.save();
     res.send({ status: "success" });
-    fs.unlinkSync(image);
+      await fs.unlinkSync(image);
     }catch(error){
-        fs.unlinkSync(image);
+        await fs.unlinkSync(image);
         res.status(500).send({error:error.message})
     }
 });
@@ -87,7 +87,7 @@ product.put("/update/:id",authenticated,upload.single("image"),async (req, res) 
     fs.unlinkSync(image);
     }
     catch(error){
-         fs.unlinkSync(image);
+          fs.unlinkSync(image);
         res.status(500).send({error:error.message})
     }
 });
