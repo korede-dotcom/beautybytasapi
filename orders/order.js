@@ -9,6 +9,99 @@ const bcrypt = require("bcryptjs");
 const { QueryTypes } = require('sequelize');
 
 
+router.post('/paystack/initialize', async (req, res) => {
+  const { email, amount } = req.body;
+
+  try {
+    const response = await axios.post(
+      'https://api.paystack.co/transaction/initialize',
+      {
+        email,
+        amount: amount * 100, // Convert to kobo
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.paystackSecretKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    res.status(200).json({
+      status: true,
+      message: 'Payment initialized successfully',
+      data: response.data.data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: false,
+      message: 'Payment initialization failed',
+      error: error.response ? error.response.data : error.message,
+    });
+  }
+});
+
+
+router.get('/paystack/verify/:reference', async (req, res) => {
+  const { reference } = req.params;
+
+  try {
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.paystackSecretKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    res.status(200).json({
+      status: true,
+      message: 'Payment verification successful',
+      data: response.data.data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: false,
+      message: 'Payment verification failed',
+      error: error.response ? error.response.data : error.message,
+    });
+  }
+});
+
+
+
+router.post('/paystack/webhook', (req, res) => {
+  const paystackSignature = req.headers['x-paystack-signature'];
+  const secret = process.env.paystackSecretKey;
+
+  // Verify webhook signature
+  if (!paystackSignature) {
+    return res.status(400).json({ message: 'Invalid signature' });
+  }
+
+  // Validate the signature
+  const crypto = require('crypto');
+  const hash = crypto
+    .createHmac('sha512', secret)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
+  if (hash !== paystackSignature) {
+    return res.status(400).json({ message: 'Invalid signature' });
+  }
+
+  // Handle the event
+  const event = req.body;
+  console.log('Event received:', event);
+
+  // Do something with the event (e.g., update order status)
+  res.status(200).json({ message: 'Webhook received' });
+});
+
+
+
 router.get("/", authenticated, async (req, res) => {
   try {
       const page = parseInt(req.query.page, 10) || 1;

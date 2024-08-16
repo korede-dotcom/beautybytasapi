@@ -12,6 +12,7 @@ const authRouter = require("./auth/auth.js");
 const categoryRouter = require("./category/category.js");
 const customerRouter = require("./customer/customer.js");
 const blogsRouter = require("./blogs/blogs.js");
+const ordersRouter = require("./orders/order.js");
 const productRouter = require("./product/product.js");
 const product = require("./models/Product.js");
 const User = require("./models/User.js");
@@ -19,11 +20,11 @@ const connectDB = require("./config/connectDB");
 
 const app = express();
 
-app.use(cors({
-  origin: 'http://localhost:3000'
-}));
+// app.use(cors({
+//   origin: 'http://localhost:3000'
+// }));
 
-// app.use(cors());
+app.use(cors());
 
 (async () => {
     await connectDB
@@ -52,11 +53,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookeParser())
 // app.use(router)
+
+
+
 app.use("/product",productRouter);
 app.use("/auth",authRouter);
 app.use("/category",categoryRouter);
 app.use("/customer",customerRouter);
 app.use("/blogs",blogsRouter);
+app.use("/orders",ordersRouter);
 
 
 
