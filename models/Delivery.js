@@ -2,43 +2,47 @@ const {Sequelize,DataTypes} = require('sequelize');
 const connectDb = require("../config/connectDB");
 const sequelize = connectDb;
 // const sequelize = new Sequelize('postgres://postgres:postgres@localhost:5432/postgres');
-const Order = sequelize.define('order', {
+const Delivery = sequelize.define('delivery', {
     id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
         primaryKey: true,
         foreignKey: true,
     },
-    reference:{
-        type:DataTypes.STRING,
-        allowNull: false,
-    },
-    productName:{
+    orderId:{
         type: DataTypes.STRING,
         allowNull: false,
     },
-    customerName:{
+    address: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    amount: {
+    deliveryFee: {
         type: DataTypes.DOUBLE,
+        defaultValue:"0.0"
+    },
+    city: {
+        type: DataTypes.STRING,
         allowNull: false,
     },
-    userId: {
-        type: Sequelize.UUID,
+    postalCode: {
+        type: DataTypes.STRING,
+       
+    },
+    state: {
+        type: DataTypes.STRING,
         allowNull: false,
     },
-    quantity:{
-        type: DataTypes.INTEGER,
-        defaultValue: 1,
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     createdAt: {
         type: DataTypes.DATE,
         defaultValue: Sequelize.NOW,
     },
     status: {
-        type: DataTypes.ENUM('success', 'declined', 'pending','initiated'),
+        type: DataTypes.ENUM('sentout', 'delivered', 'pending','initiated'),
         allowNull: false,
         defaultValue: 'initiated',
     },
@@ -47,9 +51,9 @@ const Order = sequelize.define('order', {
 });
 
 
-Order.sync({alter:true})
+Delivery.sync({force:true})
 
-module.exports = Order;
+module.exports = Delivery;
 
 
     // add a new field to the schema
