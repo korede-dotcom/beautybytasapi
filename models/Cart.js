@@ -1,8 +1,15 @@
+
 const {Sequelize,DataTypes} = require('sequelize');
 const connectDb = require("../config/connectDB");
 const sequelize = connectDb;
 // const sequelize = new Sequelize('postgres://postgres:postgres@localhost:5432/postgres');
 const Cart = sequelize.define('cart', {
+    id: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
+        primaryKey: true,
+        foreignKey: true,
+    },
     cookie:{
         type:DataTypes.STRING,
         allowNull: false,
@@ -14,10 +21,6 @@ const Cart = sequelize.define('cart', {
 });
 
 
-Cart.sync({})
+Cart.sync({alter:true})
 
-module.exports = Cart;
-
-
-    // add a new field to the schema
-    // this field will be used to store the user's cart
+module.exports = {Cart:Cart};

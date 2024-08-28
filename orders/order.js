@@ -14,7 +14,7 @@ const Order = require("../models/Order");
 const Delivery = require("../models/Delivery");
 const asyncHandler = require('express-async-handler');
 // const Cart = require("../models/Cart");
-const Carts = require("../models/Carts");
+// const {Cart} = require("../models/Cart");
 const Image = require("../models/Images");
 router.get("/insights", async (req, res) => {
   try {
@@ -181,11 +181,11 @@ router.get("/insights", async (req, res) => {
 // })
 
 // )
-router.post("/cart", asyncHandler(async function (req, res) {
-   const saveCart = await Carts.create(req.body)
-   res.status(202).json({ data: saveCart, status: true, message: 'success'});
+// router.post("/cart", asyncHandler(async function (req, res) {
+//    const saveCart = await Carts.create(req.body)
+//    res.status(202).json({ data: saveCart, status: true, message: 'success'});
 
-}))
+// }))
 
 
 router.post('/paystack/initialize', async (req, res) => {
