@@ -21,7 +21,8 @@ router.post("/signup", async (req, res) => {
             email,
             phone,
             address,
-            password: bcrypt.hashSync(password, 10)
+            password: bcrypt.hashSync(password, 10),
+            role_id:2
         });
         await newUser.save();
       
