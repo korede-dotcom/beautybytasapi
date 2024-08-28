@@ -12,7 +12,9 @@ const Product = require("../models/Product");
 const sequelize = require('sequelize');
 const Order = require("../models/Order");
 const Delivery = require("../models/Delivery");
-
+const asyncHandler = require('express-async-handler');
+const Cart = require("../models/cart");
+const Image = require("../models/Images");
 router.get("/insights", async (req, res) => {
   try {
     const dashboard = await Order.sequelize.query(`
@@ -170,7 +172,58 @@ router.get("/insights", async (req, res) => {
 
 
 
+router.get("/cart", asyncHandler(async function (req, res) {
+//   const query = `
+//   SELECT 
+//     cart.id AS cart_id,
+//     cart.productId,
+//     cart.quantity,
+//     product.name AS product_name,
+//     product.price AS product_price
+//   FROM 
+//     carts
+//   INNER JOIN 
+//     products
+//   ON 
+//     cart.productId = product.id;
+// `;
+//   const totals = await Cart.sequelize.query(query, {
+//     type: sequelize.QueryTypes.SELECT,
+//   });
+// Cart model
+Cart.belongsTo(Product, { foreignKey: 'productId' });
 
+// Product model
+Product.hasMany(Image, { foreignKey: 'productId' });
+
+// Image model
+Image.belongsTo(Product, { foreignKey: 'productId' });
+
+const getAll = await Cart.findAll({
+  include: [
+    {
+      model: Product,
+      include: [
+        {
+          model: Image,  // Include images associated with the product
+          attributes: ['url']  // Specify attributes you need, e.g., 'url'
+        }
+      ]
+    }
+  ]
+});
+
+  console.log("🚀 ~ getAll:", getAll)
+  res.status(200).json({ data: getAll, status: true });
+
+})
+
+)
+router.post("/cart", asyncHandler(async function (req, res) {
+   const saveCart = await Cart.create(req.body)
+   res.status(202).json({ data: saveCart, status: true, message: 'success'});
+
+}))
 
 
 router.post('/paystack/initialize', async (req, res) => {

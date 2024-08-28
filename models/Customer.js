@@ -17,11 +17,14 @@ const Customer = sequelize.define('customer', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    phonenumber: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     address: {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
-        
     },
 });
 
