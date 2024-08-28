@@ -5,9 +5,10 @@ const bcrypt = require("bcryptjs");
 const Admin = require("../db/Admin");
 const Customer = require("../models/Customer");
 const connectDB = require("../config/connectDB");
+const expressAsyncHandler = require("express-async-handler");
 
-router.post("/signup", async (req, res) => {
-    const { name, email, password,phone,address } = req.body;
+router.post("/signup", expressAsyncHandler(async (req, res) => {
+    const { name, email, password,phonenumber,address } = req.body;
     if (!name || !email || !password) {
         return res.status(400).send({ msg: "Please enter all fields" });
     }
@@ -29,7 +30,7 @@ router.post("/signup", async (req, res) => {
         const newCustomer = await Customer.create({
             address:address,
             userId: newUser.id,
-            phonenumber:phone
+            phonenumber:phonenumber
         },{transaction});
 
       transaction.commit();
@@ -47,7 +48,7 @@ router.post("/signup", async (req, res) => {
         
     }
     
-})
+}))
 
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
