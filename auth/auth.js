@@ -43,7 +43,7 @@ router.post("/signup", expressAsyncHandler(async (req, res) => {
     } catch (error) {
         transaction.rollback();
         res.status(500).json({
-            error: error.message
+            message: error.message
         });
         
     }
