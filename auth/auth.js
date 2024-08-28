@@ -17,9 +17,11 @@ router.post("/signup", expressAsyncHandler(async (req, res) => {
     try {
         const user = await User.findOne({ where:{ email:email} });
         if (user) {
+            transaction.rollback()
             return res.status(400).json({
                 msg: "User already exists"
             });
+
         }
         const newUser = await User.create({
             name,
