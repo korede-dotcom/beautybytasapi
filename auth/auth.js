@@ -34,7 +34,7 @@ router.post("/signup", expressAsyncHandler(async (req, res) => {
         },{transaction});
 
       transaction.commit();
-        req.session.user = user;
+        // req.session.user = user;
         res.send({
             msg: "User created successfully",
             status: "success"
