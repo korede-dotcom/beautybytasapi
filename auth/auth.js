@@ -10,7 +10,7 @@ router.post("/signup", async (req, res) => {
         return res.status(400).send({ msg: "Please enter all fields" });
     }
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ where:{ email:email} });
         if (user) {
             return res.status(400).json({
                 msg: "User already exists"
