@@ -3,12 +3,15 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const Admin = require("../db/Admin");
+const Customer = require("../models/Customer");
 
 router.post("/signup", async (req, res) => {
     const { name, email, password,phone,address } = req.body;
     if (!name || !email || !password) {
         return res.status(400).send({ msg: "Please enter all fields" });
     }
+    let transaction;
+    transaction = await connectDB.transaction();
     try {
         const user = await User.findOne({ where:{ email:email} });
         if (user) {
@@ -16,16 +19,19 @@ router.post("/signup", async (req, res) => {
                 msg: "User already exists"
             });
         }
-        const newUser = new User({
+        const newUser = await User.create({
             name,
             email,
-            phone,
-            address,
             password: bcrypt.hashSync(password, 10),
-            role_id:2
-        });
-        await newUser.save();
-      
+            roleId:2
+        },{transaction});
+        const newCustomer = await Customer.create({
+            address:address,
+            userId: newUser.id,
+            phonenumber:phone
+        },{transaction});
+
+      transaction.commit();
         req.session.user = user;
         res.send({
             msg: "User created successfully",
@@ -33,6 +39,7 @@ router.post("/signup", async (req, res) => {
         });
         
     } catch (error) {
+        transaction.rollback();
         res.status(500).json({
             error: error.message
         });
