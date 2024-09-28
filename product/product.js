@@ -37,6 +37,9 @@ product.get("/",authenticated,async (req, res) => {
       p."status",
       p."totalStock",
       p."description",
+      p."benefits",
+      p."howtouse",
+      p."ingredients",
       p."createdAt",
       c.name AS categoryName,
       ARRAY_AGG(i."imageUrl") AS images
@@ -81,6 +84,9 @@ product.get("/details/:productId",authenticated,async(req,res) => {
             p.status,
             p."totalStock",
             p.description,
+            p."benefits",
+            p."howtouse",
+            p."ingredients",
             p."createdAt",
             c.name AS categoryName,
             ARRAY_AGG(i."imageUrl") AS images
@@ -174,9 +180,9 @@ product.post("/", authenticated, async (req, res) => {
     console.log("🚀 ~ product.post ~ req.body:", req.body);
 
     const { id } = req.user;
-    const { name, price, description, categoryId,images,totalStock } = req.body;
+    const { name, price, description, categoryId,images,totalStock,benefits,ingredients,howtouse } = req.body;
 
-    if (!name || !price || !description || !images|| !categoryId || !totalStock) {
+    if (!name || !price || !description || !images|| !categoryId || !totalStock || !benefits || !ingredients || !howtouse) {
         return res.status(400).send({ message: "Please enter all fields" });
     }
 
@@ -193,7 +199,10 @@ product.post("/", authenticated, async (req, res) => {
             description:description,
             categoryId,
             totalStock:parseInt(totalStock),
-            userId: id
+            userId: id,
+            benefits,
+            ingredients,
+            howtouse
         });
         const createImages = images.forEach( async element => {
             return await Images.create({

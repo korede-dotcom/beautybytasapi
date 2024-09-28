@@ -21,6 +21,17 @@ const Product = sequelize.define('product', {
         type:DataTypes.STRING,
         allowNull: false,
     },
+    howtouse:{
+        type:DataTypes.STRING,
+        allowNull: false,
+        defaultValue: "Apply this product"
+    },
+    ingredients:{
+        type:DataTypes.STRING,
+    },
+    benefits:{
+        type:DataTypes.STRING,
+    },
     price:{
         type:DataTypes.DOUBLE,
         defaultValue:"0.0"
