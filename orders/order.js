@@ -192,6 +192,7 @@ router.post('/paystack/initialize', async (req, res) => {
   const { email, orders,name,address,city,state,country } = req.body;
 
   const productArray = JSON.stringify(orders);
+  console.log("🚀 ~ router.post ~ productArray:", productArray)
 
   const query = `
   WITH product_data AS (
@@ -230,6 +231,7 @@ const totals = await Product.sequelize.query(query, {
   const productDescriptions = totals.map(d => {
     return {...d,customer_name:name,address:address,city:city,state:state,country:country}
   })
+  console.log("🚀 ~ productDescriptions ~ productDescriptions:", productDescriptions)
 
   try {
     const response = await axios.post(
