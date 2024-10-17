@@ -238,7 +238,8 @@ const totals = await Product.sequelize.query(query, {
       `${process.env.paystackUrl}/transaction/initialize`,
       {
         email,
-        amount: productDescriptions[0].total_price * 100, // Convert to kobocallback_url: "http://localhost:3200/paystack/webhook",
+        amount: productDescriptions[0].total_price * 100, // Convert to koboc
+        callback_url: "http://localhost:3200/paystack/webhook",
         metadata: {
           // products: JSON.stringify(totals),
           products: {

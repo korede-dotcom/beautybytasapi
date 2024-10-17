@@ -109,6 +109,43 @@ product.get("/details/:productId",authenticated,async(req,res) => {
       
     
 })
+product.get("/details/:productId/client",authenticated,async(req,res) => {
+    try {
+        const {productId} = req.params
+        const query = `
+            SELECT 
+            p.id AS productId,
+            p.name AS productName,
+            p."categoryId",
+            p.price,
+            p.status,
+            p."totalStock",
+            p.description,
+            p."benefits",
+            p."howtouse",
+            p."ingredients",
+            p."createdAt",
+            c.name AS categoryName,
+            ARRAY_AGG(i."imageUrl") AS images
+            FROM products p
+            JOIN categories c ON p."categoryId" = c.id::uuid
+            LEFT JOIN images i ON i."productId" = p.id::text  -- Casting p.id to text
+            WHERE p.id = ?::uuid
+            GROUP BY p.id, c.name
+            ORDER BY p."createdAt" DESC;
+      `;
+              const [[results]] = await Product.sequelize.query(query, {
+                  replacements: [productId],
+                });
+                console.log("🚀 ~ product.get ~ results:", results)
+                res.json({ message: 'success', status:true ,results });
+                
+    } catch (error) {
+        res.json({ message: 'failed', status:false ,error });
+    }
+      
+    
+})
 
 product.put("/details/:productId", authenticated,async(req,res) => {
     // use raw query to update from database base on the payload sent
