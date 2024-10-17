@@ -109,7 +109,7 @@ product.get("/details/:productId",authenticated,async(req,res) => {
       
     
 })
-product.get("/details/:productId/client",authenticated,async(req,res) => {
+product.get("/details/:productId/client",async(req,res) => {
     try {
         const {productId} = req.params
         const query = `
