@@ -112,6 +112,7 @@ product.get("/details/:productId",authenticated,async(req,res) => {
 product.get("/details/client/:productId",async(req,res) => {
     try {
         const {productId} = req.params
+        console.log("🚀 ~ product.get ~ productId:", productId)
         const query = `
             SELECT 
             p.id AS productId,
