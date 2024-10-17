@@ -111,11 +111,9 @@ product.get("/details/:productId",authenticated,async(req,res) => {
 })
 product.get("/details/client/:productId",async(req,res) => {
     try {
-        const { productId } = req.params;
-        console.log("🚀 ~ product.get ~ productId:", productId);
-        
+        const {productId} = req.params
         const query = `
-          SELECT 
+            SELECT 
             p.id AS productId,
             p.name AS productName,
             p."categoryId",
@@ -129,25 +127,18 @@ product.get("/details/client/:productId",async(req,res) => {
             p."createdAt",
             c.name AS categoryName,
             ARRAY_AGG(i."imageUrl") AS images
-          FROM products p
-          JOIN categories c ON p."categoryId" = c.id::uuid
-          LEFT JOIN images i ON i."productId" = p.id::uuid  -- Casting i."productId" to UUID
-          WHERE p.id = ?::uuid
-          GROUP BY p.id, c.name
-          ORDER BY p."createdAt" DESC;
-        `;
-        
-        try {
-          const [[results]] = await Product.sequelize.query(query, {
-            replacements: [productId],  // productId is expected to be a UUID
-          });
-          console.log("🚀 ~ product.get ~ results:", results);
-          res.json({ message: 'success', status: true, results });
-        } catch (error) {
-          console.error("🚀 ~ product.get ~ error:", error);
-          res.status(500).json({ message: 'An error occurred', status: false });
-        }
-        
+            FROM products p
+            JOIN categories c ON p."categoryId" = c.id::uuid
+            LEFT JOIN images i ON i."productId" = p.id::text  -- Casting p.id to text
+            WHERE p.id = ?::uuid
+            GROUP BY p.id, c.name
+            ORDER BY p."createdAt" DESC;
+      `;
+              const [[results]] = await Product.sequelize.query(query, {
+                  replacements: [productId],
+                });
+                console.log("🚀 ~ product.get ~ results:", results)
+                res.json({ message: 'success', status:true ,results });
                 
     } catch (error) {
         res.json({ message: 'failed', status:false ,error });
