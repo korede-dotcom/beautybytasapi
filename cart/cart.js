@@ -77,20 +77,23 @@ cart.get("/", authenticated, async (req, res) => {
 
         const query = `
             SELECT 
-                c.id as cartId,
+                c.id as "cartId",
                 c.quantity,
-                p.id as productId,
-                p.name as productName,
+                c."createdAt",
+                c."updatedAt",
+                p.id as "productId",
+                p.name as "productName",
                 p.price,
                 p.description,
-                p.totalStock,
-                ARRAY_AGG(i.imageUrl) as images
+                p."totalStock",
+                p.status,
+                ARRAY_AGG(i."imageUrl") as images
             FROM carts c
-            JOIN products p ON c.productId = p.id
-            LEFT JOIN images i ON i.productId = p.id::text
-            WHERE c.userId = :userId
-            GROUP BY c.id, p.id
-            ORDER BY c.createdAt DESC;
+            JOIN products p ON c."productId" = p.id
+            LEFT JOIN images i ON i."productId" = p.id::text
+            WHERE c."userId" = :userId
+            GROUP BY c.id, p.id, c.quantity, c."createdAt", c."updatedAt"
+            ORDER BY c."createdAt" DESC;
         `;
 
         const cartItems = await Cart.sequelize.query(query, {
@@ -112,6 +115,7 @@ cart.get("/", authenticated, async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Cart fetch error:", error);
         res.status(500).json({ 
             status: false, 
             message: error.message 

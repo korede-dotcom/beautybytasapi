@@ -13,6 +13,10 @@ const Order = sequelize.define('order', {
         type:DataTypes.STRING,
         allowNull: false,
     },
+    productId:{
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     productName:{
         type: DataTypes.STRING,
         allowNull: false,
