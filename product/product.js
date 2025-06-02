@@ -658,17 +658,15 @@ product.get("/analytics/monthly", authenticated, async (req, res) => {
         const query = `
             WITH monthly_sales AS (
                 SELECT 
-                    DATE_TRUNC('month', o."createdAt") as "month",
-                    COUNT(DISTINCT o.id) as "orderCount",
-                    SUM(o.quantity) as "itemsSold",
-                    SUM(o.amount) as "revenue",
-                    COUNT(DISTINCT o."userId") as "uniqueCustomers",
-                    AVG(o.amount) as "averageOrderValue"
+                    TO_CHAR(o."createdAt", 'Mon') as month,
+                    DATE_TRUNC('month', o."createdAt") as month_date,
+                    COUNT(DISTINCT o.id) as order_count,
+                    SUM(o.amount) as revenue
                 FROM orders o
                 WHERE o.status = 'success'
                 ${dateFilter}
-                GROUP BY DATE_TRUNC('month', o."createdAt")
-                ORDER BY "month" ASC
+                GROUP BY TO_CHAR(o."createdAt", 'Mon'), DATE_TRUNC('month', o."createdAt")
+                ORDER BY month_date ASC
             ),
             monthly_product_sales AS (
                 SELECT 
@@ -907,17 +905,22 @@ product.get("/charts", authenticated, async (req, res) => {
                 GROUP BY p.name, DATE_TRUNC('week', o."createdAt"), TO_CHAR(o."createdAt", 'WW')
                 ORDER BY week_date ASC
             ),
+            total_revenue AS (
+                SELECT SUM(o.amount) as total
+                FROM orders o
+                WHERE o.status = 'success'
+            ),
             category_distribution AS (
                 SELECT 
                     c.name as category_name,
-                    SUM(o.amount) as total_revenue,
-                    TRUNC((SUM(o.amount) * 100.0 / SUM(SUM(o.amount)) OVER ()), 2) as percentage
+                    SUM(o.amount) as category_revenue,
+                    (SUM(o.amount) * 100.0 / (SELECT total FROM total_revenue))::numeric(10,2) as percentage
                 FROM orders o
                 JOIN products p ON o."productId" = p.id::text
                 JOIN categories c ON p."categoryId" = c.id
                 WHERE o.status = 'success'
                 GROUP BY c.name
-                ORDER BY total_revenue DESC
+                ORDER BY category_revenue DESC
             )
             SELECT 
                 (
