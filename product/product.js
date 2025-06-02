@@ -885,7 +885,7 @@ product.get("/charts", authenticated, async (req, res) => {
                 SELECT 
                     c.name as category_name,
                     SUM(o.amount) as total_revenue,
-                    CAST(ROUND((SUM(o.amount) * 100.0 / SUM(SUM(o.amount)) OVER ()), 2) AS NUMERIC) as percentage
+                    TRUNC((SUM(o.amount) * 100.0 / SUM(SUM(o.amount)) OVER ()), 2) as percentage
                 FROM orders o
                 JOIN products p ON o."productId" = p.id::text
                 JOIN categories c ON p."categoryId" = c.id
