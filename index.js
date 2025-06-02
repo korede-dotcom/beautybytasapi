@@ -61,7 +61,7 @@ app.use(cookeParser())
 app.use("/product",productRouter);
 app.use("/auth",authRouter);
 app.use("/category",categoryRouter);
-app.use("/customer",customerRouter);
+app.use("/customers",customerRouter);
 app.use("/blogs",blogsRouter);
 app.use("/orders",ordersRouter);
 app.use("/cart", cartRouter);
