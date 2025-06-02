@@ -852,4 +852,114 @@ product.get("/analytics/yearly", authenticated, async (req, res) => {
     }
 });
 
+// Get Chart Data
+product.get("/charts", authenticated, async (req, res) => {
+    try {
+        const query = `
+            WITH monthly_sales AS (
+                SELECT 
+                    TO_CHAR(o."createdAt", 'Mon') as month,
+                    DATE_TRUNC('month', o."createdAt") as month_date,
+                    COUNT(DISTINCT o.id) as order_count,
+                    SUM(o.amount) as revenue
+                FROM orders o
+                WHERE o.status = 'success'
+                AND o."createdAt" >= CURRENT_DATE - INTERVAL '6 months'
+                GROUP BY TO_CHAR(o."createdAt", 'Mon'), DATE_TRUNC('month', o."createdAt")
+                ORDER BY month_date ASC
+            ),
+            weekly_product_sales AS (
+                SELECT 
+                    p.name as product_name,
+                    DATE_TRUNC('week', o."createdAt") as week_date,
+                    TO_CHAR(o."createdAt", 'WW') as week_number,
+                    SUM(o.quantity) as quantity_sold
+                FROM orders o
+                JOIN products p ON o."productId" = p.id::text
+                WHERE o.status = 'success'
+                AND o."createdAt" >= CURRENT_DATE - INTERVAL '4 weeks'
+                GROUP BY p.name, DATE_TRUNC('week', o."createdAt"), TO_CHAR(o."createdAt", 'WW')
+                ORDER BY week_date ASC
+            ),
+            category_distribution AS (
+                SELECT 
+                    c.name as category_name,
+                    SUM(o.amount) as total_revenue,
+                    ROUND((SUM(o.amount) * 100.0 / SUM(SUM(o.amount)) OVER ()), 2) as percentage
+                FROM orders o
+                JOIN products p ON o."productId" = p.id::text
+                JOIN categories c ON p."categoryId" = c.id
+                WHERE o.status = 'success'
+                GROUP BY c.name
+                ORDER BY total_revenue DESC
+            )
+            SELECT 
+                (
+                    SELECT json_build_object(
+                        'labels', array_agg(month),
+                        'datasets', json_build_array(
+                            json_build_object(
+                                'label', 'Revenue',
+                                'data', array_agg(revenue)
+                            ),
+                            json_build_object(
+                                'label', 'Orders',
+                                'data', array_agg(order_count)
+                            )
+                        )
+                    )
+                    FROM monthly_sales
+                ) as monthly_sales,
+                (
+                    SELECT json_build_object(
+                        'labels', array_agg(DISTINCT 'Week ' || week_number),
+                        'datasets', (
+                            SELECT json_agg(
+                                json_build_object(
+                                    'label', product_name,
+                                    'data', array_agg(quantity_sold ORDER BY week_date)
+                                )
+                            )
+                            FROM (
+                                SELECT DISTINCT product_name
+                                FROM weekly_product_sales
+                                ORDER BY SUM(quantity_sold) DESC
+                                LIMIT 3
+                            ) top_products
+                        )
+                    )
+                    FROM weekly_product_sales
+                ) as product_performance,
+                (
+                    SELECT json_build_object(
+                        'labels', array_agg(category_name),
+                        'data', array_agg(percentage)
+                    )
+                    FROM category_distribution
+                ) as category_distribution;
+        `;
+
+        const [chartData] = await Product.sequelize.query(query, {
+            type: QueryTypes.SELECT
+        });
+
+        res.json({
+            status: true,
+            message: "Chart data retrieved successfully",
+            data: {
+                monthlySales: chartData.monthly_sales,
+                productPerformance: chartData.product_performance,
+                categoryDistribution: chartData.category_distribution
+            }
+        });
+
+    } catch (error) {
+        console.error("Chart data error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
 module.exports = product;
