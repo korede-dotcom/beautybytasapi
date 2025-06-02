@@ -469,16 +469,16 @@ product.get("/dashboard", authenticated, async (req, res) => {
             WITH product_stats AS (
                 SELECT 
                     COUNT(*) as total_products,
-                    SUM(stock) as total_stock,
-                    COUNT(CASE WHEN stock <= 5 THEN 1 END) as low_stock_count,
-                    COUNT(CASE WHEN "isActive" = true THEN 1 END) as active_products,
+                    SUM("totalStock") as total_stock,
+                    COUNT(CASE WHEN "totalStock" <= 5 THEN 1 END) as low_stock_count,
+                    COUNT(CASE WHEN status = true THEN 1 END) as active_products,
                     AVG(price) as average_price
                 FROM products
             ),
             category_stats AS (
                 SELECT 
                     COUNT(*) as total_categories,
-                    COUNT(CASE WHEN "isActive" = true THEN 1 END) as active_categories
+                    COUNT(CASE WHEN status = true THEN 1 END) as active_categories
                 FROM categories
             ),
             sales_stats AS (
@@ -498,13 +498,13 @@ product.get("/dashboard", authenticated, async (req, res) => {
                     p.id,
                     p.name,
                     p.price,
-                    p.stock,
+                    p."totalStock" as stock,
                     SUM(oi.quantity) as total_sold,
                     SUM(oi.quantity * p.price) as total_revenue
                 FROM products p
                 LEFT JOIN order_items oi ON p.id = oi."productId"
                 LEFT JOIN orders o ON oi."orderId" = o.id AND o.status = 'success'
-                GROUP BY p.id, p.name, p.price, p.stock
+                GROUP BY p.id, p.name, p.price, p."totalStock"
                 ORDER BY total_sold DESC
                 LIMIT 5
             ),
@@ -512,12 +512,12 @@ product.get("/dashboard", authenticated, async (req, res) => {
                 SELECT 
                     p.id,
                     p.name,
-                    p.stock,
+                    p."totalStock" as stock,
                     c.name as category_name
                 FROM products p
                 JOIN categories c ON p."categoryId" = c.id
-                WHERE p.stock <= 5
-                ORDER BY p.stock ASC
+                WHERE p."totalStock" <= 5
+                ORDER BY p."totalStock" ASC
                 LIMIT 5
             ),
             category_sales AS (
