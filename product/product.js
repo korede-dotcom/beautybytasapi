@@ -458,12 +458,12 @@ product.get("/almost-sold-out", async (req, res) => {
 product.get("/dashboard", authenticated, async (req, res) => {
     try {
         // Check if user is admin
-        if (req.user.roleId !== 1) {
-            return res.status(403).json({
-                status: false,
-                message: "Access denied. Admin only."
-            });
-        }
+        // if (req.user.roleId !== 1) {
+        //     return res.status(403).json({
+        //         status: false,
+        //         message: "Access denied. Admin only."
+        //     });
+        // }
 
         const query = `
             WITH product_stats AS (
