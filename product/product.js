@@ -529,6 +529,23 @@ product.get("/dashboard", authenticated, async (req, res) => {
                 LEFT JOIN orders o ON o."productId" = p.id::text AND o.status = 'success'
                 GROUP BY c.id, c.name
                 ORDER BY revenue DESC
+            ),
+            category_distribution AS (
+                WITH total_revenue AS (
+                    SELECT SUM(o.amount) as total
+                    FROM orders o
+                    WHERE o.status = 'success'
+                )
+                SELECT 
+                    c.name as category_name,
+                    SUM(o.amount) as total_revenue,
+                    (SUM(o.amount) * 100.0 / (SELECT total FROM total_revenue))::numeric(10,2) as percentage
+                FROM orders o
+                JOIN products p ON o."productId" = p.id::text
+                JOIN categories c ON p."categoryId" = c.id
+                WHERE o.status = 'success'
+                GROUP BY c.name
+                ORDER BY total_revenue DESC
             )
             SELECT 
                 ps.*,
@@ -563,7 +580,15 @@ product.get("/dashboard", authenticated, async (req, res) => {
                         'revenue', revenue
                     ))
                     FROM category_sales
-                ) as category_sales
+                ) as category_sales,
+                (
+                    SELECT json_agg(json_build_object(
+                        'id', id,
+                        'name', name,
+                        'percentage', percentage
+                    ))
+                    FROM category_distribution
+                ) as category_distribution
             FROM product_stats ps
             CROSS JOIN category_stats cs
             CROSS JOIN sales_stats ss;
@@ -597,7 +622,8 @@ product.get("/dashboard", authenticated, async (req, res) => {
                 },
                 topProducts: dashboard.top_products,
                 lowStockProducts: dashboard.low_stock_products,
-                categorySales: dashboard.category_sales
+                categorySales: dashboard.category_sales,
+                categoryDistribution: dashboard.category_distribution
             }
         });
 
