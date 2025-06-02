@@ -33,9 +33,12 @@ router.get("/", authenticated, async (req, res) => {
                 c.address,
                 c."createdAt",
                 u.name as "userName",
-                u.email as "userEmail"
+                u.email as "userEmail",
+                COUNT(o.id) as "orderCount"
             FROM customers c
             INNER JOIN users u ON u.id = c."userId"::uuid
+            LEFT JOIN orders o ON o."userId" = c."userId"::uuid
+            GROUP BY c.id, c."userId", c.phonenumber, c.address, c."createdAt", u.name, u.email
             ORDER BY c."createdAt" DESC
             LIMIT :limit OFFSET :offset;
         `;
