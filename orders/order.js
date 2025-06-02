@@ -368,64 +368,221 @@ router.post('/paystack/webhook', async (req, res) => {
 
 
 router.get("/", authenticated, async (req, res) => {
-  try {
-      const page = parseInt(req.query.page, 10) || 1;
-      const limit = parseInt(req.query.limit, 10) || 10;
-      const offset = (page - 1) * limit;
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
 
-      // SQL query to get paginated customers and their associated user data
-      const query = `
-          SELECT
-              u.name AS userName,
-              u.email AS userEmail,
-              c.id AS customerId,
-              c.phonenumber AS phoneNumber,
-              c.address AS address,
-              TO_CHAR(c."createdAt", 'YYYY-MM-DD HH24:MI:SS') AS createdAt
-          FROM customers c
-          INNER JOIN users u ON u.id = c."userId"::uuid
-          ORDER BY c."createdAt"
-          LIMIT :limit OFFSET :offset;
-      `;
+        // Get paginated orders with user and product details
+        const query = `
+            SELECT 
+                o.id,
+                o.reference,
+                o."productId",
+                o."productName",
+                o."customerName",
+                o.amount,
+                o."userId",
+                o.quantity,
+                o.status,
+                o."createdAt",
+                u.email as "userEmail",
+                d.address,
+                d.city,
+                d.state,
+                d.country,
+                d.status as "deliveryStatus"
+            FROM orders o
+            LEFT JOIN users u ON o."userId" = u.id::text
+            LEFT JOIN deliveries d ON o.reference = d."orderId"
+            ORDER BY o."createdAt" DESC
+            LIMIT :limit OFFSET :offset;
+        `;
 
-      // Execute the query with parameter replacements
-      const customers = await Customer.sequelize.query(query, {
-          replacements: { limit, offset },
-          type: QueryTypes.SELECT // Ensure QueryTypes is imported correctly
-      });
+        // Get total count of orders
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM orders;
+        `;
 
-      // Query to get total number of customers
-      const countQuery = `
-          SELECT COUNT(c.id) AS count
-          FROM customers c;
-      `;
+        const orders = await Order.sequelize.query(query, {
+            replacements: { limit, offset },
+            type: QueryTypes.SELECT
+        });
 
-      // Execute the count query
-      const countResult = await Customer.sequelize.query(countQuery, {
-          type: QueryTypes.SELECT // Ensure QueryTypes is imported correctly
-      });
+        const [{ total }] = await Order.sequelize.query(countQuery, {
+            type: QueryTypes.SELECT
+        });
 
-      const totalItems = parseInt(countResult[0].count, 10);
-      const totalPages = Math.ceil(totalItems / limit);
+        const totalPages = Math.ceil(total / limit);
 
-      // Return the paginated result
-      return res.status(200).json({
-          status: true,
-          message: "customers",
-          customers,
-          pagination: {
-              totalItems,
-              totalPages,
-              currentPage: page,
-              itemsPerPage: limit,
-          },
-      });
+        res.json({
+            status: true,
+            message: "Orders retrieved successfully",
+            data: {
+                orders,
+                pagination: {
+                    totalItems: total,
+                    totalPages,
+                    currentPage: page,
+                    itemsPerPage: limit,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                }
+            }
+        });
 
-  } catch (error) {
-      return res.status(500).json({ status: false, message: error.message });
-  }
+    } catch (error) {
+        console.error("Orders fetch error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
 });
-  
+
+// Get user's orders with pagination
+router.get("/my-orders", authenticated, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        // Get paginated orders for specific user
+        const query = `
+            SELECT 
+                o.id,
+                o.reference,
+                o."productId",
+                o."productName",
+                o."customerName",
+                o.amount,
+                o.quantity,
+                o.status,
+                o."createdAt",
+                d.address,
+                d.city,
+                d.state,
+                d.country,
+                d.status as "deliveryStatus"
+            FROM orders o
+            LEFT JOIN deliveries d ON o.reference = d."orderId"
+            WHERE o."userId" = :userId
+            ORDER BY o."createdAt" DESC
+            LIMIT :limit OFFSET :offset;
+        `;
+
+        // Get total count of user's orders
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM orders
+            WHERE "userId" = :userId;
+        `;
+
+        const orders = await Order.sequelize.query(query, {
+            replacements: { userId, limit, offset },
+            type: QueryTypes.SELECT
+        });
+
+        const [{ total }] = await Order.sequelize.query(countQuery, {
+            replacements: { userId },
+            type: QueryTypes.SELECT
+        });
+
+        const totalPages = Math.ceil(total / limit);
+
+        res.json({
+            status: true,
+            message: "User orders retrieved successfully",
+            data: {
+                orders,
+                pagination: {
+                    totalItems: total,
+                    totalPages,
+                    currentPage: page,
+                    itemsPerPage: limit,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("User orders fetch error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
+// Get order details with pagination
+router.get("/details/:orderId", authenticated, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        // Get order details with pagination
+        const query = `
+            SELECT 
+                o.id,
+                o.reference,
+                o."productId",
+                o."productName",
+                o."customerName",
+                o.amount,
+                o.quantity,
+                o.status,
+                o."createdAt",
+                u.email as "userEmail",
+                d.address,
+                d.city,
+                d.state,
+                d.country,
+                d.status as "deliveryStatus",
+                p.description,
+                p."totalStock",
+                ARRAY_AGG(i."imageUrl") as images
+            FROM orders o
+            LEFT JOIN users u ON o."userId" = u.id::text
+            LEFT JOIN deliveries d ON o.reference = d."orderId"
+            LEFT JOIN products p ON o."productId" = p.id::text
+            LEFT JOIN images i ON p.id = i."productId"
+            WHERE o.id = :orderId
+            GROUP BY o.id, u.email, d.address, d.city, d.state, d.country, d.status, p.description, p."totalStock"
+            LIMIT :limit OFFSET :offset;
+        `;
+
+        const orderDetails = await Order.sequelize.query(query, {
+            replacements: { orderId, limit, offset },
+            type: QueryTypes.SELECT
+        });
+
+        if (!orderDetails.length) {
+            return res.status(404).json({
+                status: false,
+                message: "Order not found"
+            });
+        }
+
+        res.json({
+            status: true,
+            message: "Order details retrieved successfully",
+            data: orderDetails[0]
+        });
+
+    } catch (error) {
+        console.error("Order details fetch error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
 
 
   router.post("/", validateCustomer, async (req, res) => {
