@@ -484,13 +484,11 @@ product.get("/dashboard", authenticated, async (req, res) => {
             sales_stats AS (
                 SELECT 
                     COUNT(DISTINCT o.id) as total_orders,
-                    SUM(oi.quantity) as total_items_sold,
-                    SUM(oi.quantity * p.price) as total_revenue,
+                    SUM(o.quantity) as total_items_sold,
+                    SUM(o.amount) as total_revenue,
                     COUNT(DISTINCT o."userId") as unique_customers,
-                    AVG(oi.quantity * p.price) as average_order_value
+                    AVG(o.amount) as average_order_value
                 FROM orders o
-                JOIN order_items oi ON o.id = oi."orderId"
-                JOIN products p ON oi."productId" = p.id
                 WHERE o.status = 'success'
             ),
             top_products AS (
@@ -499,11 +497,10 @@ product.get("/dashboard", authenticated, async (req, res) => {
                     p.name,
                     p.price,
                     p."totalStock" as stock,
-                    SUM(oi.quantity) as total_sold,
-                    SUM(oi.quantity * p.price) as total_revenue
+                    SUM(o.quantity) as total_sold,
+                    SUM(o.amount) as total_revenue
                 FROM products p
-                LEFT JOIN order_items oi ON p.id = oi."productId"
-                LEFT JOIN orders o ON oi."orderId" = o.id AND o.status = 'success'
+                LEFT JOIN orders o ON o."productId" = p.id::text AND o.status = 'success'
                 GROUP BY p.id, p.name, p.price, p."totalStock"
                 ORDER BY total_sold DESC
                 LIMIT 5
@@ -525,12 +522,11 @@ product.get("/dashboard", authenticated, async (req, res) => {
                     c.id,
                     c.name,
                     COUNT(DISTINCT o.id) as order_count,
-                    SUM(oi.quantity) as items_sold,
-                    SUM(oi.quantity * p.price) as revenue
+                    SUM(o.quantity) as items_sold,
+                    SUM(o.amount) as revenue
                 FROM categories c
                 LEFT JOIN products p ON c.id = p."categoryId"
-                LEFT JOIN order_items oi ON p.id = oi."productId"
-                LEFT JOIN orders o ON oi."orderId" = o.id AND o.status = 'success'
+                LEFT JOIN orders o ON o."productId" = p.id::text AND o.status = 'success'
                 GROUP BY c.id, c.name
                 ORDER BY revenue DESC
             )
