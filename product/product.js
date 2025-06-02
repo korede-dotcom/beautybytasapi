@@ -529,23 +529,6 @@ product.get("/dashboard", authenticated, async (req, res) => {
                 LEFT JOIN orders o ON o."productId" = p.id::text AND o.status = 'success'
                 GROUP BY c.id, c.name
                 ORDER BY revenue DESC
-            ),
-            category_distribution AS (
-                WITH total_revenue AS (
-                    SELECT SUM(o.amount) as total
-                    FROM orders o
-                    WHERE o.status = 'success'
-                )
-                SELECT 
-                    c.name as category_name,
-                    SUM(o.amount) as total_revenue,
-                    (SUM(o.amount) * 100.0 / (SELECT total FROM total_revenue))::numeric(10,2) as percentage
-                FROM orders o
-                JOIN products p ON o."productId" = p.id::text
-                JOIN categories c ON p."categoryId" = c.id
-                WHERE o.status = 'success'
-                GROUP BY c.name
-                ORDER BY total_revenue DESC
             )
             SELECT 
                 ps.*,
@@ -580,15 +563,7 @@ product.get("/dashboard", authenticated, async (req, res) => {
                         'revenue', revenue
                     ))
                     FROM category_sales
-                ) as category_sales,
-                (
-                    SELECT json_agg(json_build_object(
-                        'id', id,
-                        'name', name,
-                        'percentage', percentage
-                    ))
-                    FROM category_distribution
-                ) as category_distribution
+                ) as category_sales
             FROM product_stats ps
             CROSS JOIN category_stats cs
             CROSS JOIN sales_stats ss;
@@ -622,8 +597,7 @@ product.get("/dashboard", authenticated, async (req, res) => {
                 },
                 topProducts: dashboard.top_products,
                 lowStockProducts: dashboard.low_stock_products,
-                categorySales: dashboard.category_sales,
-                categoryDistribution: dashboard.category_distribution
+                categorySales: dashboard.category_sales
             }
         });
 
@@ -658,15 +632,17 @@ product.get("/analytics/monthly", authenticated, async (req, res) => {
         const query = `
             WITH monthly_sales AS (
                 SELECT 
-                    TO_CHAR(o."createdAt", 'Mon') as month,
-                    DATE_TRUNC('month', o."createdAt") as month_date,
-                    COUNT(DISTINCT o.id) as order_count,
-                    SUM(o.amount) as revenue
+                    DATE_TRUNC('month', o."createdAt") as "month",
+                    COUNT(DISTINCT o.id) as "orderCount",
+                    SUM(o.quantity) as "itemsSold",
+                    SUM(o.amount) as "revenue",
+                    COUNT(DISTINCT o."userId") as "uniqueCustomers",
+                    AVG(o.amount) as "averageOrderValue"
                 FROM orders o
                 WHERE o.status = 'success'
                 ${dateFilter}
-                GROUP BY TO_CHAR(o."createdAt", 'Mon'), DATE_TRUNC('month', o."createdAt")
-                ORDER BY month_date ASC
+                GROUP BY DATE_TRUNC('month', o."createdAt")
+                ORDER BY "month" ASC
             ),
             monthly_product_sales AS (
                 SELECT 
@@ -905,22 +881,17 @@ product.get("/charts", authenticated, async (req, res) => {
                 GROUP BY p.name, DATE_TRUNC('week', o."createdAt"), TO_CHAR(o."createdAt", 'WW')
                 ORDER BY week_date ASC
             ),
-            total_revenue AS (
-                SELECT SUM(o.amount) as total
-                FROM orders o
-                WHERE o.status = 'success'
-            ),
             category_distribution AS (
                 SELECT 
                     c.name as category_name,
-                    SUM(o.amount) as category_revenue,
-                    (SUM(o.amount) * 100.0 / (SELECT total FROM total_revenue))::numeric(10,2) as percentage
+                    SUM(o.amount) as total_revenue,
+                    ROUND((SUM(o.amount) * 100.0 / SUM(SUM(o.amount)) OVER ()), 2) as percentage
                 FROM orders o
                 JOIN products p ON o."productId" = p.id::text
                 JOIN categories c ON p."categoryId" = c.id
                 WHERE o.status = 'success'
                 GROUP BY c.name
-                ORDER BY category_revenue DESC
+                ORDER BY total_revenue DESC
             )
             SELECT 
                 (
