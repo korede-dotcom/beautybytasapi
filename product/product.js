@@ -465,123 +465,148 @@ product.get("/dashboard", authenticated, async (req, res) => {
             });
         }
 
-        const analytics = await Product.sequelize.query(`
-            WITH sales_metrics AS (
+        const query = `
+            WITH product_stats AS (
                 SELECT 
-                    COUNT(DISTINCT o.id) as "totalOrders",
-                    SUM(o.quantity) as "totalItemsSold",
-                    SUM(o.amount) as "totalRevenue",
-                    COUNT(DISTINCT o."userId") as "uniqueCustomers",
-                    AVG(o.amount) as "averageOrderValue"
+                    COUNT(*) as total_products,
+                    SUM(stock) as total_stock,
+                    COUNT(CASE WHEN stock <= 5 THEN 1 END) as low_stock_count,
+                    COUNT(CASE WHEN "isActive" = true THEN 1 END) as active_products,
+                    AVG(price) as average_price
+                FROM products
+            ),
+            category_stats AS (
+                SELECT 
+                    COUNT(*) as total_categories,
+                    COUNT(CASE WHEN "isActive" = true THEN 1 END) as active_categories
+                FROM categories
+            ),
+            sales_stats AS (
+                SELECT 
+                    COUNT(DISTINCT o.id) as total_orders,
+                    SUM(oi.quantity) as total_items_sold,
+                    SUM(oi.quantity * p.price) as total_revenue,
+                    COUNT(DISTINCT o."userId") as unique_customers,
+                    AVG(oi.quantity * p.price) as average_order_value
                 FROM orders o
+                JOIN order_items oi ON o.id = oi."orderId"
+                JOIN products p ON oi."productId" = p.id
                 WHERE o.status = 'success'
-            ),
-            product_metrics AS (
-                SELECT 
-                    COUNT(DISTINCT p.id) as "totalProducts",
-                    SUM(p."totalStock") as "totalInventory",
-                    COUNT(DISTINCT CASE WHEN p."totalStock" <= 5 THEN p.id END) as "lowStockProducts",
-                    COUNT(DISTINCT CASE WHEN p.status = true THEN p.id END) as "activeProducts"
-                FROM products p
-            ),
-            category_metrics AS (
-                SELECT 
-                    COUNT(DISTINCT c.id) as "totalCategories",
-                    COUNT(DISTINCT CASE WHEN c.status = true THEN c.id END) as "activeCategories"
-                FROM categories c
-            ),
-            recent_sales AS (
-                SELECT 
-                    o.id,
-                    o."productName",
-                    o.quantity,
-                    o.amount,
-                    o."customerName",
-                    o.status,
-                    o."createdAt"
-                FROM orders o
-                WHERE o.status = 'success'
-                ORDER BY o."createdAt" DESC
-                LIMIT 5
             ),
             top_products AS (
                 SELECT 
                     p.id,
                     p.name,
                     p.price,
-                    p."totalStock",
-                    COALESCE(SUM(o.quantity), 0) as "totalSold",
-                    COALESCE(SUM(o.amount), 0) as "totalRevenue"
+                    p.stock,
+                    SUM(oi.quantity) as total_sold,
+                    SUM(oi.quantity * p.price) as total_revenue
                 FROM products p
-                LEFT JOIN orders o ON o."productId" = p.id::text AND o.status = 'success'
-                GROUP BY p.id
-                ORDER BY "totalSold" DESC
+                LEFT JOIN order_items oi ON p.id = oi."productId"
+                LEFT JOIN orders o ON oi."orderId" = o.id AND o.status = 'success'
+                GROUP BY p.id, p.name, p.price, p.stock
+                ORDER BY total_sold DESC
                 LIMIT 5
             ),
-            stock_alerts AS (
+            low_stock_products AS (
                 SELECT 
                     p.id,
                     p.name,
-                    p."totalStock",
-                    c.name as "categoryName"
+                    p.stock,
+                    c.name as category_name
                 FROM products p
-                JOIN categories c ON p."categoryId" = c.id::text::uuid
-                WHERE p."totalStock" <= 5 AND p.status = true
-                ORDER BY p."totalStock" ASC
+                JOIN categories c ON p."categoryId" = c.id
+                WHERE p.stock <= 5
+                ORDER BY p.stock ASC
                 LIMIT 5
             ),
-            daily_sales AS (
+            category_sales AS (
                 SELECT 
-                    DATE(o."createdAt") as "date",
-                    COUNT(DISTINCT o.id) as "orderCount",
-                    SUM(o.quantity) as "itemsSold",
-                    SUM(o.amount) as "revenue"
-                FROM orders o
-                WHERE o.status = 'success'
-                AND o."createdAt" >= CURRENT_DATE - INTERVAL '30 days'
-                GROUP BY DATE(o."createdAt")
-                ORDER BY "date" DESC
+                    c.id,
+                    c.name,
+                    COUNT(DISTINCT o.id) as order_count,
+                    SUM(oi.quantity) as items_sold,
+                    SUM(oi.quantity * p.price) as revenue
+                FROM categories c
+                LEFT JOIN products p ON c.id = p."categoryId"
+                LEFT JOIN order_items oi ON p.id = oi."productId"
+                LEFT JOIN orders o ON oi."orderId" = o.id AND o.status = 'success'
+                GROUP BY c.id, c.name
+                ORDER BY revenue DESC
             )
             SELECT 
-                (SELECT json_build_object(
-                    'totalOrders', "totalOrders",
-                    'totalItemsSold', "totalItemsSold",
-                    'totalRevenue', "totalRevenue",
-                    'uniqueCustomers', "uniqueCustomers",
-                    'averageOrderValue', "averageOrderValue"
-                ) FROM sales_metrics) as "salesMetrics",
-                
-                (SELECT json_build_object(
-                    'totalProducts', "totalProducts",
-                    'totalInventory', "totalInventory",
-                    'lowStockProducts', "lowStockProducts",
-                    'activeProducts', "activeProducts"
-                ) FROM product_metrics) as "productMetrics",
-                
-                (SELECT json_build_object(
-                    'totalCategories', "totalCategories",
-                    'activeCategories', "activeCategories"
-                ) FROM category_metrics) as "categoryMetrics",
-                
-                (SELECT json_agg(row_to_json(rs)) FROM recent_sales rs) as "recentSales",
-                
-                (SELECT json_agg(row_to_json(tp)) FROM top_products tp) as "topProducts",
-                
-                (SELECT json_agg(row_to_json(sa)) FROM stock_alerts sa) as "stockAlerts",
-                
-                (SELECT json_agg(row_to_json(ds)) FROM daily_sales ds) as "dailySales"
-        `, {
+                ps.*,
+                cs.*,
+                ss.*,
+                (
+                    SELECT json_agg(json_build_object(
+                        'id', id,
+                        'name', name,
+                        'price', price,
+                        'stock', stock,
+                        'totalSold', total_sold,
+                        'totalRevenue', total_revenue
+                    ))
+                    FROM top_products
+                ) as top_products,
+                (
+                    SELECT json_agg(json_build_object(
+                        'id', id,
+                        'name', name,
+                        'stock', stock,
+                        'categoryName', category_name
+                    ))
+                    FROM low_stock_products
+                ) as low_stock_products,
+                (
+                    SELECT json_agg(json_build_object(
+                        'id', id,
+                        'name', name,
+                        'orderCount', order_count,
+                        'itemsSold', items_sold,
+                        'revenue', revenue
+                    ))
+                    FROM category_sales
+                ) as category_sales
+            FROM product_stats ps
+            CROSS JOIN category_stats cs
+            CROSS JOIN sales_stats ss;
+        `;
+
+        const [dashboard] = await Product.sequelize.query(query, {
             type: QueryTypes.SELECT
         });
 
         res.json({
             status: true,
-            message: "Dashboard analytics retrieved successfully",
-            data: analytics[0]
+            message: "Product dashboard data retrieved successfully",
+            data: {
+                productMetrics: {
+                    totalProducts: parseInt(dashboard.total_products),
+                    totalStock: parseInt(dashboard.total_stock),
+                    lowStockCount: parseInt(dashboard.low_stock_count),
+                    activeProducts: parseInt(dashboard.active_products),
+                    averagePrice: parseFloat(dashboard.average_price)
+                },
+                categoryMetrics: {
+                    totalCategories: parseInt(dashboard.total_categories),
+                    activeCategories: parseInt(dashboard.active_categories)
+                },
+                salesMetrics: {
+                    totalOrders: parseInt(dashboard.total_orders),
+                    totalItemsSold: parseInt(dashboard.total_items_sold),
+                    totalRevenue: parseFloat(dashboard.total_revenue),
+                    uniqueCustomers: parseInt(dashboard.unique_customers),
+                    averageOrderValue: parseFloat(dashboard.average_order_value)
+                },
+                topProducts: dashboard.top_products,
+                lowStockProducts: dashboard.low_stock_products,
+                categorySales: dashboard.category_sales
+            }
         });
 
     } catch (error) {
-        console.error("Dashboard analytics error:", error);
+        console.error("Product dashboard error:", error);
         res.status(500).json({
             status: false,
             message: error.message
