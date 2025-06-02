@@ -8,64 +8,68 @@ const router = require("express").Router()
 const bcrypt = require("bcryptjs");
 const { QueryTypes } = require('sequelize');
 
-
 router.get("/", authenticated, async (req, res) => {
-  try {
-      const page = parseInt(req.query.page, 10) || 1;
-      const limit = parseInt(req.query.limit, 10) || 10;
-      const offset = (page - 1) * limit;
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
 
-      // SQL query to get paginated customers and their associated user data
-      const query = `
-          SELECT
-              u.name AS userName,
-              u.email AS userEmail,
-              c.id AS customerId,
-              c.phonenumber AS phoneNumber,
-              c.address AS address,
-              TO_CHAR(c."createdAt", 'YYYY-MM-DD HH24:MI:SS') AS createdAt
-          FROM customers c
-          INNER JOIN users u ON u.id = c."userId"::uuid
-          ORDER BY c."createdAt"
-          LIMIT :limit OFFSET :offset;
-      `;
+        // Get total count of customers
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM customers;
+        `;
 
-      // Execute the query with parameter replacements
-      const customers = await Customer.sequelize.query(query, {
-          replacements: { limit, offset },
-          type: QueryTypes.SELECT // Ensure QueryTypes is imported correctly
-      });
+        const [{ total }] = await Customer.sequelize.query(countQuery, {
+            type: QueryTypes.SELECT
+        });
 
-      // Query to get total number of customers
-      const countQuery = `
-          SELECT COUNT(c.id) AS count
-          FROM customers c;
-      `;
+        // Get paginated customers with user details
+        const query = `
+            SELECT 
+                c.id as "customerId",
+                c."userId",
+                c.phonenumber as "phoneNumber",
+                c.address,
+                c."createdAt",
+                u.name as "userName",
+                u.email as "userEmail"
+            FROM customers c
+            INNER JOIN users u ON u.id = c."userId"::uuid
+            ORDER BY c."createdAt" DESC
+            LIMIT :limit OFFSET :offset;
+        `;
 
-      // Execute the count query
-      const countResult = await Customer.sequelize.query(countQuery, {
-          type: QueryTypes.SELECT // Ensure QueryTypes is imported correctly
-      });
+        const customers = await Customer.sequelize.query(query, {
+            replacements: { limit, offset },
+            type: QueryTypes.SELECT
+        });
 
-      const totalItems = parseInt(countResult[0].count, 10);
-      const totalPages = Math.ceil(totalItems / limit);
+        const totalPages = Math.ceil(total / limit);
 
-      // Return the paginated result
-      return res.status(200).json({
-          status: true,
-          message: "customers",
-          customers,
-          pagination: {
-              totalItems,
-              totalPages,
-              currentPage: page,
-              itemsPerPage: limit,
-          },
-      });
+        res.json({
+            status: true,
+            message: "Customers retrieved successfully",
+            data: {
+                customers,
+                pagination: {
+                    totalItems: total,
+                    totalPages,
+                    currentPage: page,
+                    itemsPerPage: limit,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                }
+            }
+        });
 
-  } catch (error) {
-      return res.status(500).json({ status: false, message: error.message });
-  }
+    } catch (error) {
+        console.error("Customers fetch error:", error);
+        res.status(500).json({ 
+            status: false, 
+            message: error.message 
+        });
+    }
 });
   
 
