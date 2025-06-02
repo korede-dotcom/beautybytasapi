@@ -14,6 +14,7 @@ const customerRouter = require("./customer/customer.js");
 const blogsRouter = require("./blogs/blogs.js");
 const ordersRouter = require("./orders/order.js");
 const productRouter = require("./product/product.js");
+const cartRouter = require("./cart/cart.js");
 const product = require("./models/Product.js");
 const User = require("./models/User.js");
 const connectDB = require("./config/connectDB");
@@ -63,6 +64,7 @@ app.use("/category",categoryRouter);
 app.use("/customer",customerRouter);
 app.use("/blogs",blogsRouter);
 app.use("/orders",ordersRouter);
+app.use("/cart", cartRouter);
 
 
 
