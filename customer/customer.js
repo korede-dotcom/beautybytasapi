@@ -111,6 +111,57 @@ router.get("/", authenticated, async (req, res) => {
   });
   
 
+// Get customer addresses
+router.get("/addresses", authenticated, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // First check if the table exists and has the required columns
+        const tableCheckQuery = `
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'customers' 
+            AND column_name IN ('city', 'state', 'country', 'isDefaultAddress');
+        `;
+
+        const columns = await Customer.sequelize.query(tableCheckQuery, {
+            type: QueryTypes.SELECT
+        });
+
+        if (columns.length < 4) {
+            // If columns don't exist, force sync the model
+            await Customer.sync({ force: true });
+            return res.json({
+                status: true,
+                message: "Table structure updated. Please try again.",
+                data: []
+            });
+        }
+
+        const addresses = await Customer.findAll({
+            where: { userId },
+            attributes: ['id', 'address', 'city', 'state', 'country', 'isDefaultAddress', 'createdAt'],
+            order: [
+                ['isDefaultAddress', 'DESC'],
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        res.json({
+            status: true,
+            message: addresses.length ? "Addresses retrieved successfully" : "No addresses found",
+            data: addresses
+        });
+
+    } catch (error) {
+        console.error("Get addresses error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
 // Add customer address
 router.post("/address", authenticated, async (req, res) => {
     try {
@@ -121,6 +172,27 @@ router.post("/address", authenticated, async (req, res) => {
             return res.status(400).json({
                 status: false,
                 message: "All address fields are required"
+            });
+        }
+
+        // Check if the table has the required columns
+        const tableCheckQuery = `
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'customers' 
+            AND column_name IN ('city', 'state', 'country', 'isDefaultAddress');
+        `;
+
+        const columns = await Customer.sequelize.query(tableCheckQuery, {
+            type: QueryTypes.SELECT
+        });
+
+        if (columns.length < 4) {
+            // If columns don't exist, force sync the model
+            await Customer.sync({ force: true });
+            return res.status(400).json({
+                status: false,
+                message: "Table structure updated. Please try again."
             });
         }
 
@@ -167,43 +239,6 @@ router.post("/address", authenticated, async (req, res) => {
 
     } catch (error) {
         console.error("Add address error:", error);
-        res.status(500).json({
-            status: false,
-            message: error.message
-        });
-    }
-});
-
-// Get customer addresses
-router.get("/addresses", authenticated, async (req, res) => {
-    try {
-        const userId = req.user.id;
-
-        const addresses = await Customer.findAll({
-            where: { userId },
-            attributes: ['id', 'address', 'city', 'state', 'country', 'isDefaultAddress', 'createdAt'],
-            order: [
-                ['isDefaultAddress', 'DESC'],
-                ['createdAt', 'DESC']
-            ]
-        });
-
-        if (!addresses.length) {
-            return res.json({
-                status: true,
-                message: "No addresses found",
-                data: []
-            });
-        }
-
-        res.json({
-            status: true,
-            message: "Addresses retrieved successfully",
-            data: addresses
-        });
-
-    } catch (error) {
-        console.error("Get addresses error:", error);
         res.status(500).json({
             status: false,
             message: error.message
@@ -341,5 +376,4 @@ router.delete("/address/:addressId", authenticated, async (req, res) => {
     }
 });
 
-module.exports = router;
 module.exports = router;

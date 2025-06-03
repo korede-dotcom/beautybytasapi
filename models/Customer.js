@@ -37,13 +37,16 @@ const Customer = sequelize.define('customer', {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
     }
+}, {
+    tableName: 'customers',
+    timestamps: true
 });
 
-// Sync the model with the database
-Customer.sync({ alter: true }).then(() => {
-    console.log('Customer table updated successfully');
+// Force sync to update the table structure
+Customer.sync({ force: true }).then(() => {
+    console.log('Customer table recreated successfully');
 }).catch((error) => {
-    console.error('Error updating Customer table:', error);
+    console.error('Error recreating Customer table:', error);
 });
 
 module.exports = Customer;
