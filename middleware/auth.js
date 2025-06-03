@@ -16,6 +16,8 @@ const authenticated = (req,res,next)=>{
                   message: 'You are not logged in!'
               });
           }
+          console.log("🚀 ~ jwt.verify ~ decodedToken:", decodedToken)
+
           req.user = decodedToken;
           req.token = token;
   
