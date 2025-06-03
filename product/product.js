@@ -259,9 +259,11 @@ product.post("/", authenticated, async (req, res) => {
 // update a product by admin only
 product.put("/update/:id", authenticated, upload.single("image"), async (req, res) => {
     try {
-        const { id, roleId } = req.user; // Get user ID and role from JWT token
+        const { id } = req.user; // Get user ID and role from JWT token
 
         console.log("🚀 ~ product.put ~ roleId:", roleId)
+        const user = await User.findOne({where:{id}});
+        const roleId = user.roleId;
         // Check if user is admin (roleId 1 is admin)
         if (roleId !== 1) {
             return res.status(403).json({
