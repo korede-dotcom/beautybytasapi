@@ -590,10 +590,11 @@ router.get("/verify/:reference", async (req, res) => {
 
         // Verify payment with Paystack
         const paystackResponse = await axios.get(
-            `https://api.paystack.co/transaction/verify/${reference}`,
+            `${process.env.paystackUrl}/transaction/verify/${reference}`,
             {
                 headers: {
-                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+                    Authorization: `Bearer ${process.env.paystackSecretKey}`,
+                    'Content-Type': 'application/json'
                 }
             }
         );
@@ -614,20 +615,18 @@ router.get("/verify/:reference", async (req, res) => {
                 o.reference,
                 o."productId" as "productId",
                 p.name as "productName",
-                c.name as "customerName",
-                c.email as "userEmail",
+                o."customerName" as "customerName",
                 o.amount,
-                o."deliveryStatus",
+                o.status,
                 o."createdAt",
                 o."updatedAt",
                 p."totalStock" as "totalStock",
                 ARRAY_AGG(i."imageUrl") as images
             FROM orders o
-            JOIN products p ON o."productId" = p.id
-            JOIN customers c ON o."customerId" = c.id
+            JOIN products p ON o."productId" = p.id::text
             LEFT JOIN images i ON i."productId" = p.id::text
             WHERE o.reference = :reference
-            GROUP BY o.id, p.id, c.id
+            GROUP BY o.id, p.id
         `;
 
         const [order] = await Order.sequelize.query(query, {
@@ -659,10 +658,27 @@ router.get("/verify/:reference", async (req, res) => {
 
     } catch (error) {
         console.error("Order verification error:", error);
-        res.status(500).json({
-            status: false,
-            message: error.message
-        });
+        // Handle specific error cases
+        if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            return res.status(error.response.status).json({
+                status: false,
+                message: error.response.data.message || "Payment verification failed"
+            });
+        } else if (error.request) {
+            // The request was made but no response was received
+            return res.status(500).json({
+                status: false,
+                message: "No response received from payment provider"
+            });
+        } else {
+            // Something happened in setting up the request that triggered an Error
+            return res.status(500).json({
+                status: false,
+                message: error.message
+            });
+        }
     }
 });
 
