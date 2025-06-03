@@ -319,13 +319,20 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
         // Update product
         await product.update(updateData);
 
-        // Fetch updated product with all details
-        const updatedProduct = await Product.findByPk(req.params.id, {
-            include: [{
-                model: Images,
-                as: 'images',
-                attributes: ['imageUrl']
-            }]
+        // Fetch updated product with all details using raw query to ensure proper type casting
+        const query = `
+            SELECT 
+                p.*,
+                ARRAY_AGG(i."imageUrl") as images
+            FROM products p
+            LEFT JOIN images i ON i."productId" = p.id
+            WHERE p.id = :productId
+            GROUP BY p.id;
+        `;
+
+        const [updatedProduct] = await Product.sequelize.query(query, {
+            replacements: { productId: req.params.id },
+            type: QueryTypes.SELECT
         });
 
         res.json({

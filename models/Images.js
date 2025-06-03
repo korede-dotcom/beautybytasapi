@@ -21,9 +21,12 @@ const Image = sequelize.define('image', {
         type: DataTypes.STRING,
         allowNull: false,
     }
+}, {
+    tableName: 'images',
+    timestamps: true
 });
 
-Image.sync({})
+Image.sync({alter: true})
 
 module.exports = Image;
 
