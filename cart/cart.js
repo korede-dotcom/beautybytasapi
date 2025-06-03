@@ -2,6 +2,7 @@ const cart = require("express").Router();
 const { authenticated } = require("../middleware/auth");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const Customer = require("../models/Customer");
 const { QueryTypes } = require('sequelize');
 const axios = require("axios");
 
@@ -214,13 +215,41 @@ cart.put("/:cartId", authenticated, async (req, res) => {
 cart.post("/checkout", authenticated, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { email, address, city, state, country } = req.body;
+        const { email, addressId } = req.body;
 
-        if (!email || !address || !city || !state || !country) {
+        if (!email) {
             return res.status(400).json({
                 status: false,
-                message: "Email and delivery details are required"
+                message: "Email is required"
             });
+        }
+
+        // Get delivery address
+        let deliveryAddress;
+        if (addressId) {
+            // Get specific address
+            deliveryAddress = await Customer.findOne({
+                where: { id: addressId, userId }
+            });
+
+            if (!deliveryAddress) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Address not found"
+                });
+            }
+        } else {
+            // Get default address
+            deliveryAddress = await Customer.findOne({
+                where: { userId, isDefaultAddress: true }
+            });
+
+            if (!deliveryAddress) {
+                return res.status(400).json({
+                    status: false,
+                    message: "No default address found. Please add an address first."
+                });
+            }
         }
 
         // Get cart items with product details
@@ -272,10 +301,10 @@ cart.post("/checkout", authenticated, async (req, res) => {
             price: item.price,
             product_total: item.price * item.quantity,
             customer_name: req.user.name,
-            address,
-            city,
-            state,
-            country
+            address: deliveryAddress.address,
+            city: deliveryAddress.city,
+            state: deliveryAddress.state,
+            country: deliveryAddress.country
         }));
 
         // Initialize Paystack payment
@@ -287,13 +316,14 @@ cart.post("/checkout", authenticated, async (req, res) => {
                 callback_url: `${process.env.FRONTEND_URL}/payment/verify`,
                 metadata: {
                     userId,
+                    addressId: deliveryAddress.id,
                     products: {
                         productDescriptions,
                         deliveryDetails: {
-                            address,
-                            city,
-                            state,
-                            country
+                            address: deliveryAddress.address,
+                            city: deliveryAddress.city,
+                            state: deliveryAddress.state,
+                            country: deliveryAddress.country
                         }
                     }
                 }

@@ -2,6 +2,7 @@ const connectDB = require("../config/connectDB");
 const { authenticated } = require("../middleware/auth");
 const Category = require("../models/Category");
 const Customer = require("../models/Customer");
+const CustomerAddress = require("../models/CustomerAddress");
 const User = require("../models/User");
 const {validateCustomer} = require("./validations/validator");
 const router = require("express").Router()
@@ -110,6 +111,167 @@ router.get("/", authenticated, async (req, res) => {
   });
   
 
+// Add customer address
+router.post("/address", authenticated, async (req, res) => {
+    try {
+        const { address, city, state, country, isDefault } = req.body;
+        const userId = req.user.id;
 
+        if (!address || !city || !state || !country) {
+            return res.status(400).json({
+                status: false,
+                message: "All address fields are required"
+            });
+        }
+
+        // If this is being set as default, unset any existing default
+        if (isDefault) {
+            await Customer.update(
+                { isDefaultAddress: false },
+                { where: { userId } }
+            );
+        }
+
+        // Add new address
+        const newAddress = await Customer.create({
+            userId,
+            address,
+            city,
+            state,
+            country,
+            isDefaultAddress: isDefault || false,
+            phonenumber: req.user.phonenumber || '' // Required field
+        });
+
+        res.json({
+            status: true,
+            message: "Address added successfully",
+            data: newAddress
+        });
+
+    } catch (error) {
+        console.error("Add address error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
+// Get customer addresses
+router.get("/addresses", authenticated, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const addresses = await Customer.findAll({
+            where: { userId },
+            order: [
+                ['isDefaultAddress', 'DESC'],
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        res.json({
+            status: true,
+            data: addresses
+        });
+
+    } catch (error) {
+        console.error("Get addresses error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
+// Update customer address
+router.put("/address/:addressId", authenticated, async (req, res) => {
+    try {
+        const { addressId } = req.params;
+        const { address, city, state, country, isDefault } = req.body;
+        const userId = req.user.id;
+
+        if (!address || !city || !state || !country) {
+            return res.status(400).json({
+                status: false,
+                message: "All address fields are required"
+            });
+        }
+
+        // If setting as default, unset any existing default
+        if (isDefault) {
+            await Customer.update(
+                { isDefaultAddress: false },
+                { where: { userId } }
+            );
+        }
+
+        const [updatedCount, [updatedAddress]] = await Customer.update(
+            {
+                address,
+                city,
+                state,
+                country,
+                isDefaultAddress: isDefault || false
+            },
+            {
+                where: { id: addressId, userId },
+                returning: true
+            }
+        );
+
+        if (!updatedCount) {
+            return res.status(404).json({
+                status: false,
+                message: "Address not found"
+            });
+        }
+
+        res.json({
+            status: true,
+            message: "Address updated successfully",
+            data: updatedAddress
+        });
+
+    } catch (error) {
+        console.error("Update address error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
+// Delete customer address
+router.delete("/address/:addressId", authenticated, async (req, res) => {
+    try {
+        const { addressId } = req.params;
+        const userId = req.user.id;
+
+        const deletedCount = await Customer.destroy({
+            where: { id: addressId, userId }
+        });
+
+        if (!deletedCount) {
+            return res.status(404).json({
+                status: false,
+                message: "Address not found"
+            });
+        }
+
+        res.json({
+            status: true,
+            message: "Address deleted successfully"
+        });
+
+    } catch (error) {
+        console.error("Delete address error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
 
 module.exports = router;

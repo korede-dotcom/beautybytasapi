@@ -20,8 +20,23 @@ const Customer = sequelize.define('customer', {
     address: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
     },
+    city: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    state: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    isDefaultAddress: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+    }
 });
 
 
