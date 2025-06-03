@@ -261,6 +261,7 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
     try {
         const { id, roleId } = req.user; // Get user ID and role from JWT token
 
+        console.log("🚀 ~ product.put ~ roleId:", roleId)
         // Check if user is admin (roleId 1 is admin)
         if (roleId !== 1) {
             return res.status(403).json({
