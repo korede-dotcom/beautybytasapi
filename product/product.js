@@ -1,11 +1,11 @@
 const product = require("express").Router();
-const Admin = require("../db/Admin");
 const {authenticated} = require("../middleware/auth");
 const multer = require("multer")
 const upload = require("../utils/multer");
 const cloudinary = require("cloudinary").v2;
 const Product = require("../models/Product");
 const Images = require("../models/Images");
+const User = require("../models/User");
 const path = require("path");
 const fs = require("fs");
 const { pool } = require("../config/config");
@@ -346,7 +346,7 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
 // delete a product by admin only
 product.get("/delete/:id",authenticated,async (req, res) => {
     const {id} = req.session.user
-    const isAdmin = await Admin.findById(id);
+    const isAdmin = await User.findById(id);
     if(!isAdmin){
         return res.status(400).send({msg:"You are not an admin"})
     }
