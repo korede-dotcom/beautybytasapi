@@ -587,6 +587,7 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
 router.get("/verify/:reference", async (req, res) => {
     try {
         const { reference } = req.params;
+        console.log("🚀 ~ Verifying payment for reference:", reference);
 
         // Verify payment with Paystack
         const paystackResponse = await axios.get(
@@ -598,13 +599,15 @@ router.get("/verify/:reference", async (req, res) => {
                 }
             }
         );
+        console.log("🚀 ~ Paystack Response:", paystackResponse.data);
 
         const { status, data: paymentData } = paystackResponse.data;
 
         if (status !== 'success') {
+            console.log("🚀 ~ Payment verification failed. Status:", status);
             return res.status(400).json({
                 status: false,
-                message: "Payment verification failed"
+                message: `Payment verification failed: ${paymentData.gateway_response || 'Unknown error'}`
             });
         }
 
@@ -635,11 +638,14 @@ router.get("/verify/:reference", async (req, res) => {
         });
 
         if (!order) {
+            console.log("🚀 ~ Order not found for reference:", reference);
             return res.status(404).json({
                 status: false,
                 message: "Order not found"
             });
         }
+
+        console.log("🚀 ~ Order found:", order);
 
         res.json({
             status: true,
@@ -657,23 +663,27 @@ router.get("/verify/:reference", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Order verification error:", error);
+        console.error("🚀 ~ Order verification error:", error);
         // Handle specific error cases
         if (error.response) {
             // The request was made and the server responded with a status code
             // that falls out of the range of 2xx
+            console.error("🚀 ~ Paystack API Error Response:", error.response.data);
             return res.status(error.response.status).json({
                 status: false,
-                message: error.response.data.message || "Payment verification failed"
+                message: error.response.data.message || "Payment verification failed",
+                details: error.response.data
             });
         } else if (error.request) {
             // The request was made but no response was received
+            console.error("🚀 ~ No response from Paystack API");
             return res.status(500).json({
                 status: false,
                 message: "No response received from payment provider"
             });
         } else {
             // Something happened in setting up the request that triggered an Error
+            console.error("🚀 ~ Request setup error:", error.message);
             return res.status(500).json({
                 status: false,
                 message: error.message
