@@ -2,7 +2,6 @@ const connectDB = require("../config/connectDB");
 const { authenticated } = require("../middleware/auth");
 const Category = require("../models/Category");
 const Customer = require("../models/Customer");
-const CustomerAddress = require("../models/CustomerAddress");
 const User = require("../models/User");
 const {validateCustomer} = require("./validations/validator");
 const router = require("express").Router()
@@ -124,8 +123,16 @@ router.post("/address", authenticated, async (req, res) => {
             });
         }
 
+        // Check if this is the first address
+        const addressCount = await Customer.count({
+            where: { userId }
+        });
+
+        const isFirstAddress = addressCount === 0;
+        const shouldBeDefault = isDefault || isFirstAddress;
+
         // If this is being set as default, unset any existing default
-        if (isDefault) {
+        if (shouldBeDefault) {
             await Customer.update(
                 { isDefaultAddress: false },
                 { where: { userId } }
@@ -139,7 +146,7 @@ router.post("/address", authenticated, async (req, res) => {
             city,
             state,
             country,
-            isDefaultAddress: isDefault || false,
+            isDefaultAddress: shouldBeDefault,
             phonenumber: req.user.phonenumber || '' // Required field
         });
 
@@ -165,6 +172,7 @@ router.get("/addresses", authenticated, async (req, res) => {
 
         const addresses = await Customer.findAll({
             where: { userId },
+            attributes: ['id', 'address', 'city', 'state', 'country', 'isDefaultAddress', 'createdAt'],
             order: [
                 ['isDefaultAddress', 'DESC'],
                 ['createdAt', 'DESC']
@@ -248,6 +256,18 @@ router.delete("/address/:addressId", authenticated, async (req, res) => {
     try {
         const { addressId } = req.params;
         const userId = req.user.id;
+
+        // Check if this is the only address
+        const addressCount = await Customer.count({
+            where: { userId }
+        });
+
+        if (addressCount <= 1) {
+            return res.status(400).json({
+                status: false,
+                message: "Cannot delete the only address. Please add another address first."
+            });
+        }
 
         const deletedCount = await Customer.destroy({
             where: { id: addressId, userId }
