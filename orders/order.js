@@ -657,14 +657,29 @@ router.get("/verify/:reference", async (req, res) => {
                 });
             }
 
+            // Get user details
+            const user = await User.findByPk(metadata.userId);
+            if (!user) {
+                return res.status(400).json({
+                    status: false,
+                    message: "User not found"
+                });
+            }
+
             // Create orders for each product
             const createdOrders = [];
             for (const product of productDescriptions) {
+                // Validate required fields
+                if (!product.productId || !product.productName || !product.quantity || !product.productTotal) {
+                    console.error("🚀 ~ Invalid product data:", product);
+                    continue;
+                }
+
                 const newOrder = await Order.create({
                     reference: paymentData.reference,
                     productId: product.productId,
                     productName: product.productName,
-                    customerName: product.customerName,
+                    customerName: user.name, // Use user's name as customer name
                     amount: product.productTotal,
                     userId: metadata.userId,
                     quantity: product.quantity,
@@ -680,12 +695,21 @@ router.get("/verify/:reference", async (req, res) => {
                 createdOrders.push(newOrder);
             }
 
+            if (createdOrders.length === 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "No valid orders were created"
+                });
+            }
+
             // Create delivery record
-            await Delivery.create({
-                orderId: paymentData.reference,
-                status: 'pending',
-                ...deliveryDetails
-            });
+            if (deliveryDetails) {
+                await Delivery.create({
+                    orderId: paymentData.reference,
+                    status: 'pending',
+                    ...deliveryDetails
+                });
+            }
 
             // Clear cart items
             await Cart.destroy({
@@ -711,7 +735,7 @@ router.get("/verify/:reference", async (req, res) => {
                         amount: paymentData.amount / 100,
                         customer: {
                             email: paymentData.customer.email,
-                            name: `${paymentData.customer.first_name} ${paymentData.customer.last_name}`.trim() || 'N/A'
+                            name: user.name // Use user's name here as well
                         },
                         authorization: {
                             cardType: paymentData.authorization.card_type,
@@ -738,7 +762,7 @@ router.get("/verify/:reference", async (req, res) => {
                     amount: paymentData.amount / 100,
                     customer: {
                         email: paymentData.customer.email,
-                        name: `${paymentData.customer.first_name} ${paymentData.customer.last_name}`.trim() || 'N/A'
+                        name: order.customerName // Use order's customer name
                     },
                     authorization: {
                         cardType: paymentData.authorization.card_type,
