@@ -323,10 +323,10 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
         const query = `
             SELECT 
                 p.*,
-                ARRAY_AGG(i."imageUrl") as images
+                COALESCE(ARRAY_AGG(i."imageUrl") FILTER (WHERE i."imageUrl" IS NOT NULL), ARRAY[]::varchar[]) as images
             FROM products p
-            LEFT JOIN images i ON i."productId" = p.id
-            WHERE p.id = :productId
+            LEFT JOIN images i ON i."productId"::uuid = p.id
+            WHERE p.id = :productId::uuid
             GROUP BY p.id;
         `;
 
