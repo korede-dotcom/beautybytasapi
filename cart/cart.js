@@ -362,7 +362,7 @@ cart.post("/checkout", authenticated, async (req, res) => {
             {
                 email,
                 amount: totalAmount * 100, // Convert to kobo
-                callback_url: `${process.env.FRONTEND_URL}/payment/verify`,
+                callback_url: `${process.env.FRONTEND_URL_REDIRECT}`,
                 metadata: {
                     userId,
                     addressId: deliveryAddress.id,
