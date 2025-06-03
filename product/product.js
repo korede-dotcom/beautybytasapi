@@ -322,12 +322,11 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
 
         // Fetch updated product with all details
         const updatedProduct = await Product.findByPk(req.params.id, {
-            include: [
-                {
-                    model: Images,
-                    attributes: ['imageUrl']
-                }
-            ]
+            include: [{
+                model: Images,
+                as: 'images',
+                attributes: ['imageUrl']
+            }]
         });
 
         res.json({
