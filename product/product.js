@@ -107,6 +107,7 @@ product.get("/details/:productId",authenticated,async(req,res) => {
       
     
 })
+
 product.get("/details/client/:productId",async(req,res) => {
     try {
         const {productId} = req.params
@@ -256,32 +257,89 @@ product.post("/", authenticated, async (req, res) => {
 });
 
 // update a product by admin only
-product.put("/update/:id",authenticated,upload.single("image"),async (req, res) => {
-    const {id} = req.session.user
-    const {name,price,description,category} = req.body;
-    const image = req.file.path;
-    const isAdmin = await Admin.findById(id);
-    if(!isAdmin){
-        return res.status(400).send({msg:"You are not an admin"})
-    }
-    if(!name || !price || !description || !image){
-        return res.status(400).send({msg:"Please enter all fields"})
-    }
-    try{
-    const result = await cloudinary.uploader.upload(req.file.path,{folder:"beautybytashop"});
-    const product = await Product.findById(req.params.id);
-    product.name = name;
-    product.price = price;
-    product.description = description;
-    product.category = category;
-    product.image = result.url;
-    await product.save();
-    res.send({ status: "success" });
-    fs.unlinkSync(image);
-    }
-    catch(error){
-          fs.unlinkSync(image);
-        res.status(500).send({error:error.message})
+product.put("/update/:id", authenticated, upload.single("image"), async (req, res) => {
+    try {
+        const { id } = req.user; // Get user ID from JWT token
+        const {
+            name,
+            price,
+            description,
+            categoryId,
+            totalStock,
+            benefits,
+            howtouse,
+            ingredients,
+            status
+        } = req.body;
+
+        // Check if user is admin
+        const isAdmin = await Admin.findById(id);
+        if (!isAdmin) {
+            return res.status(403).json({
+                status: false,
+                message: "Access denied. Admin only."
+            });
+        }
+
+        // Find the product
+        const product = await Product.findByPk(req.params.id);
+        if (!product) {
+            return res.status(404).json({
+                status: false,
+                message: "Product not found"
+            });
+        }
+
+        // Prepare update object with only provided fields
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (price) updateData.price = parseFloat(price);
+        if (description) updateData.description = description;
+        if (categoryId) updateData.categoryId = categoryId;
+        if (totalStock) updateData.totalStock = parseInt(totalStock);
+        if (benefits) updateData.benefits = benefits;
+        if (howtouse) updateData.howtouse = howtouse;
+        if (ingredients) updateData.ingredients = ingredients;
+        if (status !== undefined) updateData.status = status;
+
+        // Handle image upload if provided
+        if (req.file) {
+            const result = await cloudinary.uploader.upload(req.file.path, { folder: "beautybytashop" });
+            updateData.image = result.url;
+            // Clean up uploaded file
+            fs.unlinkSync(req.file.path);
+        }
+
+        // Update product
+        await product.update(updateData);
+
+        // Fetch updated product with all details
+        const updatedProduct = await Product.findByPk(req.params.id, {
+            include: [
+                {
+                    model: Images,
+                    attributes: ['imageUrl']
+                }
+            ]
+        });
+
+        res.json({
+            status: true,
+            message: "Product updated successfully",
+            data: updatedProduct
+        });
+
+    } catch (error) {
+        // Clean up uploaded file if it exists
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
+        
+        console.error("Product update error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
     }
 });
 
