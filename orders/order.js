@@ -376,7 +376,7 @@ router.get("/", authenticated, async (req, res) => {
 
         // Get paginated orders with user and product details
         const query = `
-            SELECT 
+            SELECT
                 o.id,
                 o.reference,
                 o."productId" as "productId",
@@ -394,7 +394,7 @@ router.get("/", authenticated, async (req, res) => {
                 d.country,
                 d.status as "deliveryStatus"
             FROM orders o
-            LEFT JOIN users u ON o."userId" = u.id::text
+            LEFT JOIN users u ON o."userId"::text = u.id::text
             LEFT JOIN deliveries d ON o.reference = d."orderId"
             ORDER BY o."createdAt" DESC
             LIMIT :limit OFFSET :offset;
