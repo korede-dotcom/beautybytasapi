@@ -583,6 +583,98 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
     }
 });
 
+// Get order details from Paystack reference
+router.get("/verify/:reference", async (req, res) => {
+    try {
+        const { reference } = req.params;
+
+        // Verify payment with Paystack
+        const paystackResponse = await axios.get(
+            `${process.env.paystackUrl}/transaction/verify/${reference}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${process.env.paystackSecretKey}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        if (paystackResponse.data.data.status !== 'success') {
+            return res.status(400).json({
+                status: false,
+                message: 'Payment verification failed'
+            });
+        }
+
+        // Get order details with delivery information
+        const query = `
+            SELECT 
+                o.id,
+                o.reference,
+                o."productId",
+                o."productName",
+                o."customerName",
+                o.amount,
+                o.quantity,
+                o.status,
+                o."createdAt",
+                u.email as "userEmail",
+                d.address,
+                d.city,
+                d.state,
+                d.country,
+                d.status as "deliveryStatus",
+                p.description,
+                p."totalStock",
+                ARRAY_AGG(i."imageUrl") as images
+            FROM orders o
+            LEFT JOIN users u ON o."userId" = u.id::text
+            LEFT JOIN deliveries d ON o.reference = d."orderId"
+            LEFT JOIN products p ON o."productId" = p.id::text
+            LEFT JOIN images i ON p.id = i."productId"
+            WHERE o.reference = :reference
+            GROUP BY o.id, u.email, d.address, d.city, d.state, d.country, d.status, p.description, p."totalStock"
+        `;
+
+        const orderDetails = await Order.sequelize.query(query, {
+            replacements: { reference },
+            type: QueryTypes.SELECT
+        });
+
+        if (!orderDetails.length) {
+            return res.status(404).json({
+                status: false,
+                message: "Order not found"
+            });
+        }
+
+        // Format the response
+        const formattedOrder = {
+            ...orderDetails[0],
+            paymentDetails: {
+                reference: paystackResponse.data.data.reference,
+                status: paystackResponse.data.data.status,
+                paidAt: paystackResponse.data.data.paid_at,
+                channel: paystackResponse.data.data.channel,
+                amount: paystackResponse.data.data.amount / 100 // Convert from kobo to naira
+            }
+        };
+
+        res.json({
+            status: true,
+            message: "Order details retrieved successfully",
+            data: formattedOrder
+        });
+
+    } catch (error) {
+        console.error("Order verification error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.response?.data?.message || error.message
+        });
+    }
+});
+
 
 
   router.post("/", validateCustomer, async (req, res) => {
