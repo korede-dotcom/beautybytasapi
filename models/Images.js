@@ -1,8 +1,7 @@
 const {Sequelize,DataTypes} = require('sequelize');
 const connectDb = require("../config/connectDB");
 const sequelize = connectDb;
-const Product = require('./Product');
-// const sequelize = new Sequelize('postgres://postgres:postgres@localhost:5432/postgres');
+
 const Image = sequelize.define('image', {
     id: {
         type: Sequelize.UUID,
@@ -21,20 +20,7 @@ const Image = sequelize.define('image', {
     imageUrl:{
         type: DataTypes.STRING,
         allowNull: false,
-    },
-
-   
-});
-
-// Define the association
-Image.belongsTo(Product, {
-    foreignKey: 'productId',
-    as: 'product'
-});
-
-Product.hasMany(Image, {
-    foreignKey: 'productId',
-    as: 'images'
+    }
 });
 
 Image.sync({})
