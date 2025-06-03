@@ -357,10 +357,17 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
 
 // delete a product by admin only
 product.get("/delete/:id",authenticated,async (req, res) => {
-    const {id} = req.session.user
-    const isAdmin = await User.findById(id);
-    if(!isAdmin){
-        return res.status(400).send({msg:"You are not an admin"})
+    const { id } = req.user; // Get user ID and role from JWT token
+
+    const user = await User.findOne({where:{id:id}});
+    const roleId = user.roleId;
+    console.log("🚀 ~ product.put ~ user:", user)
+    // Check if user is admin (roleId 1 is admin)
+    if (roleId !== 1) {
+        return res.status(403).json({
+            status: false,
+            message: "Access denied. Admin only."
+        });
     }
     try {
         const product = await Product.findById(req.params.id);
