@@ -259,7 +259,16 @@ product.post("/", authenticated, async (req, res) => {
 // update a product by admin only
 product.put("/update/:id", authenticated, upload.single("image"), async (req, res) => {
     try {
-        const { id } = req.user; // Get user ID from JWT token
+        const { id, roleId } = req.user; // Get user ID and role from JWT token
+
+        // Check if user is admin (roleId 1 is admin)
+        if (roleId !== 1) {
+            return res.status(403).json({
+                status: false,
+                message: "Access denied. Admin only."
+            });
+        }
+
         const {
             name,
             price,
@@ -271,15 +280,6 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
             ingredients,
             status
         } = req.body;
-
-        // Check if user is admin
-        const isAdmin = await Admin.findById(id);
-        if (!isAdmin) {
-            return res.status(403).json({
-                status: false,
-                message: "Access denied. Admin only."
-            });
-        }
 
         // Find the product
         const product = await Product.findByPk(req.params.id);
