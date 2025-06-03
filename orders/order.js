@@ -378,14 +378,14 @@ router.get("/", authenticated, async (req, res) => {
             SELECT 
                 o.id,
                 o.reference,
-                o."productId",
-                o."productName",
-                o."customerName",
+                o."productId" as "productId",
+                o."productName" as "productName",
+                o."customerName" as "customerName",
                 o.amount,
-                o."userId",
+                o."userId" as "userId",
                 o.quantity,
                 o.status,
-                o."createdAt",
+                o."createdAt" as "createdAt",
                 u.email as "userEmail",
                 d.address,
                 d.city,
@@ -410,28 +410,6 @@ router.get("/", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
-        // Transform the data
-        const transformedOrders = orders.map(order => ({
-            id: order.id,
-            reference: order.reference,
-            productId: order.productid,
-            productName: order.productname,
-            customerName: order.customername,
-            amount: order.amount,
-            userId: order.userid,
-            quantity: order.quantity,
-            status: order.status,
-            createdAt: order.createdAt,
-            userEmail: order.useremail,
-            delivery: {
-                address: order.address,
-                city: order.city,
-                state: order.state,
-                country: order.country,
-                status: order.deliverystatus
-            }
-        }));
-
         const [{ total }] = await Order.sequelize.query(countQuery, {
             type: QueryTypes.SELECT
         });
@@ -442,7 +420,7 @@ router.get("/", authenticated, async (req, res) => {
             status: true,
             message: "Orders retrieved successfully",
             data: {
-                orders: transformedOrders,
+                orders,
                 pagination: {
                     totalItems: total,
                     totalPages,
@@ -476,13 +454,13 @@ router.get("/my-orders", authenticated, async (req, res) => {
             SELECT 
                 o.id,
                 o.reference,
-                o."productId",
-                o."productName",
-                o."customerName",
+                o."productId" as "productId",
+                o."productName" as "productName",
+                o."customerName" as "customerName",
                 o.amount,
                 o.quantity,
                 o.status,
-                o."createdAt",
+                o."createdAt" as "createdAt",
                 d.address,
                 d.city,
                 d.state,
@@ -507,26 +485,6 @@ router.get("/my-orders", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
-        // Transform the data
-        const transformedOrders = orders.map(order => ({
-            id: order.id,
-            reference: order.reference,
-            productId: order.productid,
-            productName: order.productname,
-            customerName: order.customername,
-            amount: order.amount,
-            quantity: order.quantity,
-            status: order.status,
-            createdAt: order.createdAt,
-            delivery: {
-                address: order.address,
-                city: order.city,
-                state: order.state,
-                country: order.country,
-                status: order.deliverystatus
-            }
-        }));
-
         const [{ total }] = await Order.sequelize.query(countQuery, {
             replacements: { userId },
             type: QueryTypes.SELECT
@@ -538,7 +496,7 @@ router.get("/my-orders", authenticated, async (req, res) => {
             status: true,
             message: "User orders retrieved successfully",
             data: {
-                orders: transformedOrders,
+                orders,
                 pagination: {
                     totalItems: total,
                     totalPages,
@@ -572,13 +530,13 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
             SELECT 
                 o.id,
                 o.reference,
-                o."productId",
-                o."productName",
-                o."customerName",
+                o."productId" as "productId",
+                o."productName" as "productName",
+                o."customerName" as "customerName",
                 o.amount,
                 o.quantity,
                 o.status,
-                o."createdAt",
+                o."createdAt" as "createdAt",
                 u.email as "userEmail",
                 d.address,
                 d.city,
@@ -586,7 +544,7 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
                 d.country,
                 d.status as "deliveryStatus",
                 p.description,
-                p."totalStock",
+                p."totalStock" as "totalStock",
                 ARRAY_AGG(i."imageUrl") as images
             FROM orders o
             LEFT JOIN users u ON o."userId" = u.id::text
@@ -610,36 +568,10 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
             });
         }
 
-        // Transform the data
-        const transformedOrder = {
-            id: orderDetails[0].id,
-            reference: orderDetails[0].reference,
-            productId: orderDetails[0].productid,
-            productName: orderDetails[0].productname,
-            customerName: orderDetails[0].customername,
-            amount: orderDetails[0].amount,
-            quantity: orderDetails[0].quantity,
-            status: orderDetails[0].status,
-            createdAt: orderDetails[0].createdAt,
-            userEmail: orderDetails[0].useremail,
-            delivery: {
-                address: orderDetails[0].address,
-                city: orderDetails[0].city,
-                state: orderDetails[0].state,
-                country: orderDetails[0].country,
-                status: orderDetails[0].deliverystatus
-            },
-            product: {
-                description: orderDetails[0].description,
-                totalStock: orderDetails[0].totalstock,
-                images: orderDetails[0].images
-            }
-        };
-
         res.json({
             status: true,
             message: "Order details retrieved successfully",
-            data: transformedOrder
+            data: orderDetails[0]
         });
 
     } catch (error) {
@@ -651,7 +583,7 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
     }
 });
 
-// Get order details
+// Get order details from Paystack reference
 router.get("/verify/:reference", async (req, res) => {
     try {
         const { reference } = req.params;
@@ -680,7 +612,7 @@ router.get("/verify/:reference", async (req, res) => {
             SELECT 
                 o.id,
                 o.reference,
-                o."productId",
+                o."productId" as "productId",
                 p.name as "productName",
                 c.name as "customerName",
                 c.email as "userEmail",
@@ -688,7 +620,7 @@ router.get("/verify/:reference", async (req, res) => {
                 o."deliveryStatus",
                 o."createdAt",
                 o."updatedAt",
-                p."totalStock",
+                p."totalStock" as "totalStock",
                 ARRAY_AGG(i."imageUrl") as images
             FROM orders o
             JOIN products p ON o."productId" = p.id
@@ -710,33 +642,19 @@ router.get("/verify/:reference", async (req, res) => {
             });
         }
 
-        // Transform the data
-        const transformedOrder = {
-            id: order.id,
-            reference: order.reference,
-            productId: order.productid,
-            productName: order.productname,
-            customerName: order.customername,
-            userEmail: order.useremail,
-            amount: order.amount,
-            deliveryStatus: order.deliverystatus,
-            createdAt: order.createdAt,
-            updatedAt: order.updatedAt,
-            totalStock: order.totalstock,
-            images: order.images,
-            paymentDetails: {
-                reference: paymentData.reference,
-                status: paymentData.status,
-                paidAt: paymentData.paid_at,
-                channel: paymentData.channel,
-                amount: paymentData.amount / 100 // Convert from kobo to naira
-            }
-        };
-
         res.json({
             status: true,
             message: "Order details retrieved successfully",
-            data: transformedOrder
+            data: {
+                ...order,
+                paymentDetails: {
+                    reference: paymentData.reference,
+                    status: paymentData.status,
+                    paidAt: paymentData.paid_at,
+                    channel: paymentData.channel,
+                    amount: paymentData.amount / 100 // Convert from kobo to naira
+                }
+            }
         });
 
     } catch (error) {

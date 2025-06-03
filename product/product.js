@@ -30,47 +30,44 @@ product.get("/",authenticated,async (req, res) => {
   
     try {
         const query = `
-  SELECT 
-      p.id AS productId,
-      p.name AS productName,
-      p."categoryId",
-      p."price",
-      p."status",
-      p."totalStock",
-      p."description",
-      p."benefits",
-      p."howtouse",
-      p."ingredients",
-      p."createdAt",
-      c.name AS categoryName,
-      ARRAY_AGG(i."imageUrl") AS images
-    FROM products p 
-    JOIN categories c ON p."categoryId" = c.id::text::uuid
-    LEFT JOIN images i ON i."productId" = p.id::uuid::text
-    GROUP BY p.id, c.name
-    ORDER BY p."createdAt" DESC
-    LIMIT ? OFFSET ?;
-`;
-// const [products, metadata] = await Product.sequelize.query(query);
-//         res.json({status:true,message:"products",products});
+            SELECT 
+                p.id AS "productId",
+                p.name AS "productName",
+                p."categoryId",
+                p.price,
+                p.status,
+                p."totalStock",
+                p.description,
+                p.benefits,
+                p.howtouse,
+                p.ingredients,
+                p."createdAt",
+                c.name AS "categoryName",
+                ARRAY_AGG(i."imageUrl") AS images
+            FROM products p 
+            JOIN categories c ON p."categoryId" = c.id::text::uuid
+            LEFT JOIN images i ON i."productId" = p.id::uuid::text
+            GROUP BY p.id, c.name
+            ORDER BY p."createdAt" DESC
+            LIMIT ? OFFSET ?;
+        `;
+
         const [results] = await Product.sequelize.query(query, {
             replacements: [limit, offset],
-          });
-        //   res.json({status:true,message:"products",products:results});
-          res.json({
+        });
+
+        res.json({
             status: true,
             page,
             pageSize,
             data: results,
-          });
+        });
       
     } catch (error) {
         res.status(500).json({
             error: error.message
         });
     }
-    
-    
 });
 
 product.get("/details/:productId",authenticated,async(req,res) => {
@@ -78,22 +75,22 @@ product.get("/details/:productId",authenticated,async(req,res) => {
         const {productId} = req.params
         const query = `
             SELECT 
-            p.id AS productId,
-            p.name AS productName,
-            p."categoryId",
-            p.price,
-            p.status,
-            p."totalStock",
-            p.description,
-            p."benefits",
-            p."howtouse",
-            p."ingredients",
-            p."createdAt",
-            c.name AS categoryName,
-            ARRAY_AGG(i."imageUrl") AS images
+                p.id AS "productId",
+                p.name AS "productName",
+                p."categoryId",
+                p.price,
+                p.status,
+                p."totalStock",
+                p.description,
+                p.benefits,
+                p.howtouse,
+                p.ingredients,
+                p."createdAt",
+                c.name AS "categoryName",
+                ARRAY_AGG(i."imageUrl") AS images
             FROM products p
             JOIN categories c ON p."categoryId" = c.id::uuid
-            LEFT JOIN images i ON i."productId" = p.id::text  -- Casting p.id to text
+            LEFT JOIN images i ON i."productId" = p.id::text
             WHERE p.id = ?::uuid
             GROUP BY p.id, c.name
             ORDER BY p."createdAt" DESC;
@@ -115,22 +112,22 @@ product.get("/details/client/:productId",async(req,res) => {
         const {productId} = req.params
         const query = `
             SELECT 
-            p.id AS productId,
-            p.name AS productName,
-            p."categoryId",
-            p.price,
-            p.status,
-            p."totalStock",
-            p.description,
-            p."benefits",
-            p."howtouse",
-            p."ingredients",
-            p."createdAt",
-            c.name AS categoryName,
-            ARRAY_AGG(i."imageUrl") AS images
+                p.id AS "productId",
+                p.name AS "productName",
+                p."categoryId",
+                p.price,
+                p.status,
+                p."totalStock",
+                p.description,
+                p.benefits,
+                p.howtouse,
+                p.ingredients,
+                p."createdAt",
+                c.name AS "categoryName",
+                ARRAY_AGG(i."imageUrl") AS images
             FROM products p
             JOIN categories c ON p."categoryId" = c.id::uuid
-            LEFT JOIN images i ON i."productId" = p.id::text  -- Casting p.id to text
+            LEFT JOIN images i ON i."productId" = p.id::text
             WHERE p.id = ?::uuid
             GROUP BY p.id, c.name
             ORDER BY p."createdAt" DESC;
@@ -318,9 +315,9 @@ product.get("/best-selling", async (req, res) => {
                 p.status,
                 p."totalStock",
                 p.description,
-                p."benefits",
-                p."howtouse",
-                p."ingredients",
+                p.benefits,
+                p.howtouse,
+                p.ingredients,
                 p."createdAt",
                 c.name AS "categoryName",
                 ARRAY_AGG(DISTINCT i."imageUrl") AS images,
@@ -341,29 +338,10 @@ product.get("/best-selling", async (req, res) => {
             type: QueryTypes.SELECT
         });
 
-        // Transform the data to match our format
-        const transformedProducts = products.map(product => ({
-            productId: product.productid,
-            productName: product.productname,
-            categoryId: product.categoryid,
-            price: product.price,
-            status: product.status,
-            totalStock: product.totalstock,
-            description: product.description,
-            benefits: product.benefits,
-            howtouse: product.howtouse,
-            ingredients: product.ingredients,
-            createdAt: product.createdAt,
-            categoryName: product.categoryname,
-            images: product.images,
-            totalSold: product.totalsold,
-            orderCount: product.ordercount
-        }));
-
         res.json({
             status: true,
             message: "Best selling products retrieved successfully",
-            data: transformedProducts
+            data: products
         });
     } catch (error) {
         console.error("Best selling products error:", error);
@@ -386,9 +364,9 @@ product.get("/new", async (req, res) => {
                 p.status,
                 p."totalStock",
                 p.description,
-                p."benefits",
-                p."howtouse",
-                p."ingredients",
+                p.benefits,
+                p.howtouse,
+                p.ingredients,
                 p."createdAt",
                 c.name AS "categoryName",
                 ARRAY_AGG(DISTINCT i."imageUrl") AS images,
@@ -407,28 +385,10 @@ product.get("/new", async (req, res) => {
             type: QueryTypes.SELECT
         });
 
-        // Transform the data to match our format
-        const transformedProducts = products.map(product => ({
-            productId: product.productid,
-            productName: product.productname,
-            categoryId: product.categoryid,
-            price: product.price,
-            status: product.status,
-            totalStock: product.totalstock,
-            description: product.description,
-            benefits: product.benefits,
-            howtouse: product.howtouse,
-            ingredients: product.ingredients,
-            createdAt: product.createdAt,
-            categoryName: product.categoryname,
-            images: product.images,
-            totalSold: product.totalsold
-        }));
-
         res.json({
             status: true,
             message: "New products retrieved successfully",
-            data: transformedProducts
+            data: products
         });
     } catch (error) {
         console.error("New products error:", error);

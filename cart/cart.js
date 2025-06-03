@@ -103,30 +103,15 @@ cart.get("/", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
-        // Transform the data to match our format
-        const transformedItems = cartItems.map(item => ({
-            cartId: item.cartid,
-            quantity: item.quantity,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            productId: item.productid,
-            productName: item.productname,
-            price: item.price,
-            description: item.description,
-            totalStock: item.totalstock,
-            status: item.status,
-            images: item.images
-        }));
-
         // Calculate total
-        const total = transformedItems.reduce((sum, item) => {
+        const total = cartItems.reduce((sum, item) => {
             return sum + (item.price * item.quantity);
         }, 0);
 
         res.json({
             status: true,
             data: {
-                items: transformedItems,
+                items: cartItems,
                 total: total
             }
         });
@@ -217,21 +202,8 @@ cart.put("/:cartId", authenticated, async (req, res) => {
             });
         }
 
-        // Transform the data
-        const transformedItem = {
-            cartId: cartItem.cartid,
-            quantity: cartItem.quantity,
-            userId: cartItem.userId,
-            productId: cartItem.productid,
-            productName: cartItem.productname,
-            price: cartItem.price,
-            totalStock: cartItem.totalstock,
-            status: cartItem.status,
-            images: cartItem.images
-        };
-
         // Check if requested quantity is available in stock
-        if (transformedItem.totalStock < quantity) {
+        if (cartItem.totalStock < quantity) {
             return res.status(400).json({ 
                 status: false, 
                 message: "Not enough stock available" 
@@ -270,26 +242,13 @@ cart.put("/:cartId", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
-        // Transform the updated data
-        const transformedUpdatedItem = {
-            cartId: updatedCartItem.cartid,
-            quantity: updatedCartItem.quantity,
-            createdAt: updatedCartItem.createdAt,
-            updatedAt: updatedCartItem.updatedAt,
-            productId: updatedCartItem.productid,
-            productName: updatedCartItem.productname,
-            price: updatedCartItem.price,
-            description: updatedCartItem.description,
-            totalStock: updatedCartItem.totalstock,
-            status: updatedCartItem.status,
-            images: updatedCartItem.images,
-            total: updatedCartItem.price * updatedCartItem.quantity
-        };
-
         res.json({ 
             status: true, 
             message: "Cart updated successfully", 
-            data: transformedUpdatedItem
+            data: {
+                ...updatedCartItem,
+                total: updatedCartItem.price * updatedCartItem.quantity
+            }
         });
 
     } catch (error) {
@@ -389,8 +348,8 @@ cart.post("/checkout", authenticated, async (req, res) => {
             productName: item.productName,
             quantity: item.quantity,
             price: item.price,
-            product_total: item.price * item.quantity,
-            customer_name: req.user.name,
+            productTotal: item.price * item.quantity,
+            customerName: req.user.name,
             address: deliveryAddress.address,
             city: deliveryAddress.city,
             state: deliveryAddress.state,
