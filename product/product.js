@@ -261,7 +261,6 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
     try {
         const { id } = req.user; // Get user ID and role from JWT token
 
-        console.log("🚀 ~ product.put ~ roleId:", roleId)
         const user = await User.findOne({where:{id:id}});
         const roleId = user.roleId;
         console.log("🚀 ~ product.put ~ user:", user)
