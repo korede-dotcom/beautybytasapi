@@ -341,10 +341,29 @@ product.get("/best-selling", async (req, res) => {
             type: QueryTypes.SELECT
         });
 
+        // Transform the data to match our format
+        const transformedProducts = products.map(product => ({
+            productId: product.productid,
+            productName: product.productname,
+            categoryId: product.categoryid,
+            price: product.price,
+            status: product.status,
+            totalStock: product.totalstock,
+            description: product.description,
+            benefits: product.benefits,
+            howtouse: product.howtouse,
+            ingredients: product.ingredients,
+            createdAt: product.createdAt,
+            categoryName: product.categoryname,
+            images: product.images,
+            totalSold: product.totalsold,
+            orderCount: product.ordercount
+        }));
+
         res.json({
             status: true,
             message: "Best selling products retrieved successfully",
-            data: products
+            data: transformedProducts
         });
     } catch (error) {
         console.error("Best selling products error:", error);
@@ -388,10 +407,28 @@ product.get("/new", async (req, res) => {
             type: QueryTypes.SELECT
         });
 
+        // Transform the data to match our format
+        const transformedProducts = products.map(product => ({
+            productId: product.productid,
+            productName: product.productname,
+            categoryId: product.categoryid,
+            price: product.price,
+            status: product.status,
+            totalStock: product.totalstock,
+            description: product.description,
+            benefits: product.benefits,
+            howtouse: product.howtouse,
+            ingredients: product.ingredients,
+            createdAt: product.createdAt,
+            categoryName: product.categoryname,
+            images: product.images,
+            totalSold: product.totalsold
+        }));
+
         res.json({
             status: true,
             message: "New products retrieved successfully",
-            data: products
+            data: transformedProducts
         });
     } catch (error) {
         console.error("New products error:", error);

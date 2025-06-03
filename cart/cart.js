@@ -103,15 +103,30 @@ cart.get("/", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
+        // Transform the data to match our format
+        const transformedItems = cartItems.map(item => ({
+            cartId: item.cartid,
+            quantity: item.quantity,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            productId: item.productid,
+            productName: item.productname,
+            price: item.price,
+            description: item.description,
+            totalStock: item.totalstock,
+            status: item.status,
+            images: item.images
+        }));
+
         // Calculate total
-        const total = cartItems.reduce((sum, item) => {
+        const total = transformedItems.reduce((sum, item) => {
             return sum + (item.price * item.quantity);
         }, 0);
 
         res.json({
             status: true,
             data: {
-                items: cartItems,
+                items: transformedItems,
                 total: total
             }
         });
@@ -202,8 +217,21 @@ cart.put("/:cartId", authenticated, async (req, res) => {
             });
         }
 
+        // Transform the data
+        const transformedItem = {
+            cartId: cartItem.cartid,
+            quantity: cartItem.quantity,
+            userId: cartItem.userId,
+            productId: cartItem.productid,
+            productName: cartItem.productname,
+            price: cartItem.price,
+            totalStock: cartItem.totalstock,
+            status: cartItem.status,
+            images: cartItem.images
+        };
+
         // Check if requested quantity is available in stock
-        if (cartItem.totalStock < quantity) {
+        if (transformedItem.totalStock < quantity) {
             return res.status(400).json({ 
                 status: false, 
                 message: "Not enough stock available" 
@@ -242,13 +270,26 @@ cart.put("/:cartId", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
+        // Transform the updated data
+        const transformedUpdatedItem = {
+            cartId: updatedCartItem.cartid,
+            quantity: updatedCartItem.quantity,
+            createdAt: updatedCartItem.createdAt,
+            updatedAt: updatedCartItem.updatedAt,
+            productId: updatedCartItem.productid,
+            productName: updatedCartItem.productname,
+            price: updatedCartItem.price,
+            description: updatedCartItem.description,
+            totalStock: updatedCartItem.totalstock,
+            status: updatedCartItem.status,
+            images: updatedCartItem.images,
+            total: updatedCartItem.price * updatedCartItem.quantity
+        };
+
         res.json({ 
             status: true, 
             message: "Cart updated successfully", 
-            data: {
-                ...updatedCartItem,
-                total: updatedCartItem.price * updatedCartItem.quantity
-            }
+            data: transformedUpdatedItem
         });
 
     } catch (error) {

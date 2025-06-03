@@ -410,6 +410,28 @@ router.get("/", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
+        // Transform the data
+        const transformedOrders = orders.map(order => ({
+            id: order.id,
+            reference: order.reference,
+            productId: order.productid,
+            productName: order.productname,
+            customerName: order.customername,
+            amount: order.amount,
+            userId: order.userid,
+            quantity: order.quantity,
+            status: order.status,
+            createdAt: order.createdAt,
+            userEmail: order.useremail,
+            delivery: {
+                address: order.address,
+                city: order.city,
+                state: order.state,
+                country: order.country,
+                status: order.deliverystatus
+            }
+        }));
+
         const [{ total }] = await Order.sequelize.query(countQuery, {
             type: QueryTypes.SELECT
         });
@@ -420,7 +442,7 @@ router.get("/", authenticated, async (req, res) => {
             status: true,
             message: "Orders retrieved successfully",
             data: {
-                orders,
+                orders: transformedOrders,
                 pagination: {
                     totalItems: total,
                     totalPages,
@@ -441,7 +463,7 @@ router.get("/", authenticated, async (req, res) => {
     }
 });
 
-// Get user's orders with pagination
+// Get user's orders
 router.get("/my-orders", authenticated, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -485,6 +507,26 @@ router.get("/my-orders", authenticated, async (req, res) => {
             type: QueryTypes.SELECT
         });
 
+        // Transform the data
+        const transformedOrders = orders.map(order => ({
+            id: order.id,
+            reference: order.reference,
+            productId: order.productid,
+            productName: order.productname,
+            customerName: order.customername,
+            amount: order.amount,
+            quantity: order.quantity,
+            status: order.status,
+            createdAt: order.createdAt,
+            delivery: {
+                address: order.address,
+                city: order.city,
+                state: order.state,
+                country: order.country,
+                status: order.deliverystatus
+            }
+        }));
+
         const [{ total }] = await Order.sequelize.query(countQuery, {
             replacements: { userId },
             type: QueryTypes.SELECT
@@ -496,7 +538,7 @@ router.get("/my-orders", authenticated, async (req, res) => {
             status: true,
             message: "User orders retrieved successfully",
             data: {
-                orders,
+                orders: transformedOrders,
                 pagination: {
                     totalItems: total,
                     totalPages,
@@ -517,7 +559,7 @@ router.get("/my-orders", authenticated, async (req, res) => {
     }
 });
 
-// Get order details with pagination
+// Get order details
 router.get("/details/:orderId", authenticated, async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -568,10 +610,36 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
             });
         }
 
+        // Transform the data
+        const transformedOrder = {
+            id: orderDetails[0].id,
+            reference: orderDetails[0].reference,
+            productId: orderDetails[0].productid,
+            productName: orderDetails[0].productname,
+            customerName: orderDetails[0].customername,
+            amount: orderDetails[0].amount,
+            quantity: orderDetails[0].quantity,
+            status: orderDetails[0].status,
+            createdAt: orderDetails[0].createdAt,
+            userEmail: orderDetails[0].useremail,
+            delivery: {
+                address: orderDetails[0].address,
+                city: orderDetails[0].city,
+                state: orderDetails[0].state,
+                country: orderDetails[0].country,
+                status: orderDetails[0].deliverystatus
+            },
+            product: {
+                description: orderDetails[0].description,
+                totalStock: orderDetails[0].totalstock,
+                images: orderDetails[0].images
+            }
+        };
+
         res.json({
             status: true,
             message: "Order details retrieved successfully",
-            data: orderDetails[0]
+            data: transformedOrder
         });
 
     } catch (error) {
@@ -583,94 +651,99 @@ router.get("/details/:orderId", authenticated, async (req, res) => {
     }
 });
 
-// Get order details from Paystack reference
+// Get order details
 router.get("/verify/:reference", async (req, res) => {
     try {
         const { reference } = req.params;
 
         // Verify payment with Paystack
         const paystackResponse = await axios.get(
-            `${process.env.paystackUrl}/transaction/verify/${reference}`,
+            `https://api.paystack.co/transaction/verify/${reference}`,
             {
                 headers: {
-                    Authorization: `Bearer ${process.env.paystackSecretKey}`,
-                    'Content-Type': 'application/json',
-                },
+                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+                }
             }
         );
 
-        if (paystackResponse.data.data.status !== 'success') {
+        const { status, data: paymentData } = paystackResponse.data;
+
+        if (status !== 'success') {
             return res.status(400).json({
                 status: false,
-                message: 'Payment verification failed'
+                message: "Payment verification failed"
             });
         }
 
-        // Get order details with delivery information
+        // Get order details
         const query = `
             SELECT 
                 o.id,
                 o.reference,
                 o."productId",
-                o."productName",
-                o."customerName",
+                p.name as "productName",
+                c.name as "customerName",
+                c.email as "userEmail",
                 o.amount,
-                o.quantity,
-                o.status,
+                o."deliveryStatus",
                 o."createdAt",
-                u.email as "userEmail",
-                d.address,
-                d.city,
-                d.state,
-                d.country,
-                d.status as "deliveryStatus",
-                p.description,
+                o."updatedAt",
                 p."totalStock",
                 ARRAY_AGG(i."imageUrl") as images
             FROM orders o
-            LEFT JOIN users u ON o."userId" = u.id::text
-            LEFT JOIN deliveries d ON o.reference = d."orderId"
-            LEFT JOIN products p ON o."productId" = p.id::text
-            LEFT JOIN images i ON p.id = i."productId"
+            JOIN products p ON o."productId" = p.id
+            JOIN customers c ON o."customerId" = c.id
+            LEFT JOIN images i ON i."productId" = p.id::text
             WHERE o.reference = :reference
-            GROUP BY o.id, u.email, d.address, d.city, d.state, d.country, d.status, p.description, p."totalStock"
+            GROUP BY o.id, p.id, c.id
         `;
 
-        const orderDetails = await Order.sequelize.query(query, {
+        const [order] = await Order.sequelize.query(query, {
             replacements: { reference },
             type: QueryTypes.SELECT
         });
 
-        if (!orderDetails.length) {
+        if (!order) {
             return res.status(404).json({
                 status: false,
                 message: "Order not found"
             });
         }
 
-        // Format the response
-        const formattedOrder = {
-            ...orderDetails[0],
+        // Transform the data
+        const transformedOrder = {
+            id: order.id,
+            reference: order.reference,
+            productId: order.productid,
+            productName: order.productname,
+            customerName: order.customername,
+            userEmail: order.useremail,
+            amount: order.amount,
+            deliveryStatus: order.deliverystatus,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+            totalStock: order.totalstock,
+            images: order.images,
             paymentDetails: {
-                reference: paystackResponse.data.data.reference,
-                status: paystackResponse.data.data.status,
-                paidAt: paystackResponse.data.data.paid_at,
-                channel: paystackResponse.data.data.channel,
-                amount: paystackResponse.data.data.amount / 100 // Convert from kobo to naira
+                reference: paymentData.reference,
+                status: paymentData.status,
+                paidAt: paymentData.paid_at,
+                channel: paymentData.channel,
+                amount: paymentData.amount / 100 // Convert from kobo to naira
             }
         };
 
         res.json({
             status: true,
             message: "Order details retrieved successfully",
-            data: formattedOrder
+            data: transformedOrder
         });
 
     } catch (error) {
         console.error("Order verification error:", error);
         res.status(500).json({
             status: false,
-            message: error.response?.data?.message || error.message
+            message: error.message
         });
     }
 });
