@@ -308,7 +308,11 @@ product.put("/update/:id", authenticated, upload.single("image"), async (req, re
         // Handle image upload if provided
         if (req.file) {
             const result = await cloudinary.uploader.upload(req.file.path, { folder: "beautybytashop" });
-            updateData.image = result.url;
+            // Create new image record instead of updating product image
+            await Images.create({
+                productId: product.id,
+                imageUrl: result.url
+            });
             // Clean up uploaded file
             fs.unlinkSync(req.file.path);
         }
