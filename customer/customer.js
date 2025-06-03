@@ -7,6 +7,7 @@ const {validateCustomer} = require("./validations/validator");
 const router = require("express").Router()
 const bcrypt = require("bcryptjs");
 const { QueryTypes } = require('sequelize');
+const { Op } = require('sequelize');
 
 router.get("/", authenticated, async (req, res) => {
     try {
@@ -153,7 +154,15 @@ router.post("/address", authenticated, async (req, res) => {
         res.json({
             status: true,
             message: "Address added successfully",
-            data: newAddress
+            data: {
+                id: newAddress.id,
+                address: newAddress.address,
+                city: newAddress.city,
+                state: newAddress.state,
+                country: newAddress.country,
+                isDefaultAddress: newAddress.isDefaultAddress,
+                createdAt: newAddress.createdAt
+            }
         });
 
     } catch (error) {
@@ -179,8 +188,17 @@ router.get("/addresses", authenticated, async (req, res) => {
             ]
         });
 
+        if (!addresses.length) {
+            return res.json({
+                status: true,
+                message: "No addresses found",
+                data: []
+            });
+        }
+
         res.json({
             status: true,
+            message: "Addresses retrieved successfully",
             data: addresses
         });
 
@@ -207,6 +225,18 @@ router.put("/address/:addressId", authenticated, async (req, res) => {
             });
         }
 
+        // Check if address exists and belongs to user
+        const existingAddress = await Customer.findOne({
+            where: { id: addressId, userId }
+        });
+
+        if (!existingAddress) {
+            return res.status(404).json({
+                status: false,
+                message: "Address not found"
+            });
+        }
+
         // If setting as default, unset any existing default
         if (isDefault) {
             await Customer.update(
@@ -215,6 +245,7 @@ router.put("/address/:addressId", authenticated, async (req, res) => {
             );
         }
 
+        // Update address
         const [updatedCount, [updatedAddress]] = await Customer.update(
             {
                 address,
@@ -229,17 +260,18 @@ router.put("/address/:addressId", authenticated, async (req, res) => {
             }
         );
 
-        if (!updatedCount) {
-            return res.status(404).json({
-                status: false,
-                message: "Address not found"
-            });
-        }
-
         res.json({
             status: true,
             message: "Address updated successfully",
-            data: updatedAddress
+            data: {
+                id: updatedAddress.id,
+                address: updatedAddress.address,
+                city: updatedAddress.city,
+                state: updatedAddress.state,
+                country: updatedAddress.country,
+                isDefaultAddress: updatedAddress.isDefaultAddress,
+                updatedAt: updatedAddress.updatedAt
+            }
         });
 
     } catch (error) {
@@ -257,6 +289,18 @@ router.delete("/address/:addressId", authenticated, async (req, res) => {
         const { addressId } = req.params;
         const userId = req.user.id;
 
+        // Check if address exists and belongs to user
+        const existingAddress = await Customer.findOne({
+            where: { id: addressId, userId }
+        });
+
+        if (!existingAddress) {
+            return res.status(404).json({
+                status: false,
+                message: "Address not found"
+            });
+        }
+
         // Check if this is the only address
         const addressCount = await Customer.count({
             where: { userId }
@@ -269,16 +313,19 @@ router.delete("/address/:addressId", authenticated, async (req, res) => {
             });
         }
 
-        const deletedCount = await Customer.destroy({
-            where: { id: addressId, userId }
-        });
-
-        if (!deletedCount) {
-            return res.status(404).json({
-                status: false,
-                message: "Address not found"
+        // If deleting default address, set another address as default
+        if (existingAddress.isDefaultAddress) {
+            const nextAddress = await Customer.findOne({
+                where: { userId, id: { [Op.ne]: addressId } },
+                order: [['createdAt', 'DESC']]
             });
+
+            if (nextAddress) {
+                await nextAddress.update({ isDefaultAddress: true });
+            }
         }
+
+        await existingAddress.destroy();
 
         res.json({
             status: true,
@@ -294,4 +341,5 @@ router.delete("/address/:addressId", authenticated, async (req, res) => {
     }
 });
 
+module.exports = router;
 module.exports = router;

@@ -35,12 +35,16 @@ const Customer = sequelize.define('customer', {
     },
     isDefaultAddress: {
         type: DataTypes.BOOLEAN,
-        defaultValue: true,
+        defaultValue: false,
     }
 });
 
-
-Customer.sync({alter:true})
+// Sync the model with the database
+Customer.sync({ alter: true }).then(() => {
+    console.log('Customer table updated successfully');
+}).catch((error) => {
+    console.error('Error updating Customer table:', error);
+});
 
 module.exports = Customer;
 
