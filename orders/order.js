@@ -657,6 +657,14 @@ router.get("/verify/:reference", async (req, res) => {
                 });
             }
 
+            // Validate delivery details
+            if (!deliveryDetails || !deliveryDetails.address || !deliveryDetails.city || !deliveryDetails.state || !deliveryDetails.country) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Delivery address details are incomplete. Please provide complete address information."
+                });
+            }
+
             // Get user details
             const user = await User.findByPk(metadata.userId);
             if (!user) {
@@ -679,7 +687,7 @@ router.get("/verify/:reference", async (req, res) => {
                     reference: paymentData.reference,
                     productId: product.productId,
                     productName: product.productName,
-                    customerName: user.name, // Use user's name as customer name
+                    customerName: user.name,
                     amount: product.productTotal,
                     userId: metadata.userId,
                     quantity: product.quantity,
@@ -702,22 +710,51 @@ router.get("/verify/:reference", async (req, res) => {
                 });
             }
 
-            // Create delivery record
-            if (deliveryDetails) {
-                await Delivery.create({
-                    orderId: paymentData.reference,
-                    status: 'pending',
-                    ...deliveryDetails
-                });
-            }
+            // Create delivery record with validated address
+            const delivery = await Delivery.create({
+                orderId: paymentData.reference,
+                status: 'pending',
+                address: deliveryDetails.address,
+                city: deliveryDetails.city,
+                state: deliveryDetails.state,
+                country: deliveryDetails.country
+            });
+
+            console.log("🚀 ~ Created delivery record:", delivery);
 
             // Clear cart items
             await Cart.destroy({
                 where: { userId: metadata.userId }
             });
 
-            // Fetch the created order with all details
-            const [createdOrder] = await Order.sequelize.query(query, {
+            // Fetch the created order with all details including delivery
+            const orderWithDeliveryQuery = `
+                SELECT 
+                    o.id,
+                    o.reference,
+                    o."productId" as "productId",
+                    p.name as "productName",
+                    o."customerName" as "customerName",
+                    o.amount,
+                    o.status,
+                    o."createdAt",
+                    o."updatedAt",
+                    p."totalStock" as "totalStock",
+                    ARRAY_AGG(i."imageUrl") as images,
+                    d.address,
+                    d.city,
+                    d.state,
+                    d.country,
+                    d.status as "deliveryStatus"
+                FROM orders o
+                JOIN products p ON o."productId" = p.id::text
+                LEFT JOIN images i ON i."productId" = p.id::text
+                LEFT JOIN deliveries d ON o.reference = d."orderId"
+                WHERE o.reference = :reference
+                GROUP BY o.id, p.id, d.address, d.city, d.state, d.country, d.status
+            `;
+
+            const [createdOrder] = await Order.sequelize.query(orderWithDeliveryQuery, {
                 replacements: { reference },
                 type: QueryTypes.SELECT
             });
@@ -735,7 +772,7 @@ router.get("/verify/:reference", async (req, res) => {
                         amount: paymentData.amount / 100,
                         customer: {
                             email: paymentData.customer.email,
-                            name: user.name // Use user's name here as well
+                            name: user.name
                         },
                         authorization: {
                             cardType: paymentData.authorization.card_type,
@@ -747,13 +784,45 @@ router.get("/verify/:reference", async (req, res) => {
             });
         }
 
-        console.log("🚀 ~ Order found:", order);
+        // For existing orders, fetch with delivery details
+        const orderWithDeliveryQuery = `
+            SELECT 
+                o.id,
+                o.reference,
+                o."productId" as "productId",
+                p.name as "productName",
+                o."customerName" as "customerName",
+                o.amount,
+                o.status,
+                o."createdAt",
+                o."updatedAt",
+                p."totalStock" as "totalStock",
+                ARRAY_AGG(i."imageUrl") as images,
+                d.address,
+                d.city,
+                d.state,
+                d.country,
+                d.status as "deliveryStatus"
+            FROM orders o
+            JOIN products p ON o."productId" = p.id::text
+            LEFT JOIN images i ON i."productId" = p.id::text
+            LEFT JOIN deliveries d ON o.reference = d."orderId"
+            WHERE o.reference = :reference
+            GROUP BY o.id, p.id, d.address, d.city, d.state, d.country, d.status
+        `;
+
+        const [orderWithDelivery] = await Order.sequelize.query(orderWithDeliveryQuery, {
+            replacements: { reference },
+            type: QueryTypes.SELECT
+        });
+
+        console.log("🚀 ~ Order found with delivery:", orderWithDelivery);
 
         res.json({
             status: true,
             message: "Order details retrieved successfully",
             data: {
-                ...order,
+                ...orderWithDelivery,
                 paymentDetails: {
                     reference: paymentData.reference,
                     status: paymentData.status,
@@ -762,7 +831,7 @@ router.get("/verify/:reference", async (req, res) => {
                     amount: paymentData.amount / 100,
                     customer: {
                         email: paymentData.customer.email,
-                        name: order.customerName // Use order's customer name
+                        name: orderWithDelivery.customerName
                     },
                     authorization: {
                         cardType: paymentData.authorization.card_type,
@@ -777,8 +846,6 @@ router.get("/verify/:reference", async (req, res) => {
         console.error("🚀 ~ Order verification error:", error);
         // Handle specific error cases
         if (error.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
             console.error("🚀 ~ Paystack API Error Response:", error.response.data);
             return res.status(error.response.status).json({
                 status: false,
@@ -786,14 +853,12 @@ router.get("/verify/:reference", async (req, res) => {
                 details: error.response.data
             });
         } else if (error.request) {
-            // The request was made but no response was received
             console.error("🚀 ~ No response from Paystack API");
             return res.status(500).json({
                 status: false,
                 message: "No response received from payment provider"
             });
         } else {
-            // Something happened in setting up the request that triggered an Error
             console.error("🚀 ~ Request setup error:", error.message);
             return res.status(500).json({
                 status: false,
