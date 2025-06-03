@@ -722,10 +722,11 @@ router.get("/verify/:reference", async (req, res) => {
 
             console.log("🚀 ~ Created delivery record:", delivery);
 
-            // Clear cart items
-            await Cart.destroy({
+            // Clear cart items for the user
+            const deletedCartItems = await Cart.destroy({
                 where: { userId: metadata.userId }
             });
+            console.log("🚀 ~ Cleared cart items:", deletedCartItems);
 
             // Fetch the created order with all details including delivery
             const orderWithDeliveryQuery = `
@@ -761,7 +762,7 @@ router.get("/verify/:reference", async (req, res) => {
 
             return res.json({
                 status: true,
-                message: "Orders created successfully",
+                message: "Orders created successfully and cart cleared",
                 data: {
                     ...createdOrder,
                     paymentDetails: {
