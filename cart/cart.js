@@ -171,12 +171,28 @@ cart.put("/:cartId", authenticated, async (req, res) => {
             });
         }
 
-        const cartItem = await Cart.findOne({
-            where: { id: cartId, userId },
-            include: [{
-                model: Product,
-                attributes: ['totalStock']
-            }]
+        // Get cart item with product details
+        const query = `
+            SELECT 
+                c.id as "cartId",
+                c.quantity,
+                c."userId",
+                p.id as "productId",
+                p.name as "productName",
+                p.price,
+                p."totalStock",
+                p.status,
+                ARRAY_AGG(i."imageUrl") as images
+            FROM carts c
+            JOIN products p ON c."productId" = p.id
+            LEFT JOIN images i ON i."productId" = p.id::text
+            WHERE c.id = :cartId AND c."userId" = :userId
+            GROUP BY c.id, p.id, c.quantity, c."userId"
+        `;
+
+        const [cartItem] = await Cart.sequelize.query(query, {
+            replacements: { cartId, userId },
+            type: QueryTypes.SELECT
         });
 
         if (!cartItem) {
@@ -187,23 +203,56 @@ cart.put("/:cartId", authenticated, async (req, res) => {
         }
 
         // Check if requested quantity is available in stock
-        if (cartItem.Product.totalStock < quantity) {
+        if (cartItem.totalStock < quantity) {
             return res.status(400).json({ 
                 status: false, 
                 message: "Not enough stock available" 
             });
         }
 
-        cartItem.quantity = quantity;
-        await cartItem.save();
+        // Update cart quantity
+        await Cart.update(
+            { quantity },
+            { where: { id: cartId, userId } }
+        );
+
+        // Get updated cart item with product details
+        const updatedQuery = `
+            SELECT 
+                c.id as "cartId",
+                c.quantity,
+                c."createdAt",
+                c."updatedAt",
+                p.id as "productId",
+                p.name as "productName",
+                p.price,
+                p.description,
+                p."totalStock",
+                p.status,
+                ARRAY_AGG(i."imageUrl") as images
+            FROM carts c
+            JOIN products p ON c."productId" = p.id
+            LEFT JOIN images i ON i."productId" = p.id::text
+            WHERE c.id = :cartId
+            GROUP BY c.id, p.id, c.quantity, c."createdAt", c."updatedAt"
+        `;
+
+        const [updatedCartItem] = await Cart.sequelize.query(updatedQuery, {
+            replacements: { cartId },
+            type: QueryTypes.SELECT
+        });
 
         res.json({ 
             status: true, 
             message: "Cart updated successfully", 
-            data: cartItem 
+            data: {
+                ...updatedCartItem,
+                total: updatedCartItem.price * updatedCartItem.quantity
+            }
         });
 
     } catch (error) {
+        console.error("Cart update error:", error);
         res.status(500).json({ 
             status: false, 
             message: error.message 
