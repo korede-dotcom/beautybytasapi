@@ -601,10 +601,10 @@ router.get("/verify/:reference", async (req, res) => {
         );
         console.log("🚀 ~ Paystack Response:", paystackResponse.data);
 
-        const { status, data: paymentData } = paystackResponse.data;
+        const { status: apiStatus, data: paymentData } = paystackResponse.data;
 
-        if (status !== 'success') {
-            console.log("🚀 ~ Payment verification failed. Status:", status);
+        if (!apiStatus || paymentData.status !== 'success') {
+            console.log("🚀 ~ Payment verification failed. API Status:", apiStatus, "Payment Status:", paymentData.status);
             return res.status(400).json({
                 status: false,
                 message: `Payment verification failed: ${paymentData.gateway_response || 'Unknown error'}`
@@ -657,7 +657,16 @@ router.get("/verify/:reference", async (req, res) => {
                     status: paymentData.status,
                     paidAt: paymentData.paid_at,
                     channel: paymentData.channel,
-                    amount: paymentData.amount / 100 // Convert from kobo to naira
+                    amount: paymentData.amount / 100, // Convert from kobo to naira
+                    customer: {
+                        email: paymentData.customer.email,
+                        name: `${paymentData.customer.first_name} ${paymentData.customer.last_name}`.trim() || 'N/A'
+                    },
+                    authorization: {
+                        cardType: paymentData.authorization.card_type,
+                        bank: paymentData.authorization.bank,
+                        last4: paymentData.authorization.last4
+                    }
                 }
             }
         });
