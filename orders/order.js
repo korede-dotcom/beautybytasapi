@@ -16,6 +16,7 @@ const asyncHandler = require('express-async-handler');
 // const Cart = require("../models/Cart");
 // const {Cart} = require("../models/Cart");
 const Image = require("../models/Images");
+const Cart = require("../models/Cart");
 router.get("/insights", async (req, res) => {
   try {
     const dashboard = await Order.sequelize.query(`
@@ -639,9 +640,86 @@ router.get("/verify/:reference", async (req, res) => {
 
         if (!order) {
             console.log("🚀 ~ Order not found for reference:", reference);
-            return res.status(404).json({
-                status: false,
-                message: "Order not found"
+            // Create order from payment data
+            const { metadata } = paymentData;
+            if (!metadata || !metadata.products) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid payment metadata"
+                });
+            }
+
+            const { productDescriptions, deliveryDetails } = metadata.products;
+            if (!Array.isArray(productDescriptions)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid product descriptions"
+                });
+            }
+
+            // Create orders for each product
+            const createdOrders = [];
+            for (const product of productDescriptions) {
+                const newOrder = await Order.create({
+                    reference: paymentData.reference,
+                    productId: product.productId,
+                    productName: product.productName,
+                    customerName: product.customerName,
+                    amount: product.productTotal,
+                    userId: metadata.userId,
+                    quantity: product.quantity,
+                    status: 'success'
+                });
+
+                // Update product stock
+                await Product.update(
+                    { totalStock: sequelize.literal(`"totalStock" - ${product.quantity}`) },
+                    { where: { id: product.productId } }
+                );
+
+                createdOrders.push(newOrder);
+            }
+
+            // Create delivery record
+            await Delivery.create({
+                orderId: paymentData.reference,
+                status: 'pending',
+                ...deliveryDetails
+            });
+
+            // Clear cart items
+            await Cart.destroy({
+                where: { userId: metadata.userId }
+            });
+
+            // Fetch the created order with all details
+            const [createdOrder] = await Order.sequelize.query(query, {
+                replacements: { reference },
+                type: QueryTypes.SELECT
+            });
+
+            return res.json({
+                status: true,
+                message: "Orders created successfully",
+                data: {
+                    ...createdOrder,
+                    paymentDetails: {
+                        reference: paymentData.reference,
+                        status: paymentData.status,
+                        paidAt: paymentData.paid_at,
+                        channel: paymentData.channel,
+                        amount: paymentData.amount / 100,
+                        customer: {
+                            email: paymentData.customer.email,
+                            name: `${paymentData.customer.first_name} ${paymentData.customer.last_name}`.trim() || 'N/A'
+                        },
+                        authorization: {
+                            cardType: paymentData.authorization.card_type,
+                            bank: paymentData.authorization.bank,
+                            last4: paymentData.authorization.last4
+                        }
+                    }
+                }
             });
         }
 
@@ -657,7 +735,7 @@ router.get("/verify/:reference", async (req, res) => {
                     status: paymentData.status,
                     paidAt: paymentData.paid_at,
                     channel: paymentData.channel,
-                    amount: paymentData.amount / 100, // Convert from kobo to naira
+                    amount: paymentData.amount / 100,
                     customer: {
                         email: paymentData.customer.email,
                         name: `${paymentData.customer.first_name} ${paymentData.customer.last_name}`.trim() || 'N/A'
