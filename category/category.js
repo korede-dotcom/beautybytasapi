@@ -60,39 +60,45 @@ router.get('/:categoryId/products', async (req, res) => {
 
       const query = `
             SELECT 
-                p.id::text AS productId,  -- Cast productId to text
-                p.name AS productName,
-                p."categoryId"::text AS categoryId,  -- Cast categoryId to text
+                p.id AS "productId",
+                p.name AS "productName",
+                p."categoryId" AS "categoryId",
                 p.price,
                 p.status,
                 p."totalStock",
                 p.description,
                 p."createdAt",
-                c.name AS categoryName,
+                c.name AS "categoryName",
                 ARRAY_AGG(i."imageUrl") AS images
             FROM 
                 products p
             JOIN 
-                categories c ON p."categoryId"::text = c.id::text  -- Cast both to text
+                categories c ON p."categoryId" = c.id
             LEFT JOIN 
-                images i ON i."productId"::text = p.id::text  -- Cast both to text
+                images i ON i."productId" = p.id::text
             WHERE 
-                p."categoryId"::text = :categoryId  -- No need to cast again here
+                p."categoryId" = :categoryId::uuid
             GROUP BY 
                 p.id, c.name
             ORDER BY 
                 p."createdAt" DESC;
         `;
 
-
       const products = await Category.sequelize.query(query, {
           replacements: { categoryId },
           type: sequelize.QueryTypes.SELECT,
       });
 
-      res.json({ data: products, status: true });
+      res.json({ 
+          status: true,
+          message: "Products retrieved successfully",
+          data: products 
+      });
   } catch (error) {
-      res.status(500).json({ error: error.message, status: false });
+      res.status(500).json({ 
+          status: false, 
+          message: error.message 
+      });
   }
 });
 
