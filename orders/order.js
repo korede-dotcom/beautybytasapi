@@ -343,24 +343,24 @@ router.post('/paystack/webhook', async (req, res) => {
   );
   console.log("🚀 ~ response:", response)
 
-  const mappedProduct = event.data.metadata.products.productDescriptions.forEach( async (element) => {
-      await Order.create({
-        reference: event.data.reference,
-        status: response.data.data.status,
-        amount: element.product_total, // Convert to cents
-        quantity: element.quantity,
-        productName: element.name, //
-        customerName: element.customer_name,
-        userId: event.data.metadata.userId || "21136955-6f72-474f-bd57-f7fb3b753173",
-      })
-
+  const mappedProduct = event.data.metadata.products.productDescriptions.forEach(async (element) => {
+    await Order.create({
+      reference: event.data.reference,
+      status: response.data.data.status,
+      amount: element.product_total,
+      quantity: element.quantity,
+      productName: element.name,
+      customerName: element.customer_name,
+      userId: event.data.metadata.userId || "21136955-6f72-474f-bd57-f7fb3b753173",
+      productId: element.product_id
+    });
   });
 
   await Delivery.create({
     orderId: response.data.data.id,
     status: "pending",
     ...event.data.metadata.products.deliveryDetails
-  })
+  });
 
   res.status(200).json({ message: 'Webhook received' });
 });
