@@ -370,8 +370,8 @@ product.get("/delete/:id",authenticated,async (req, res) => {
         });
     }
     try {
-        const product = await Product.findById(req.params.id);
-        await product.remove();
+        const product = await Product.findOne({where:{id:req.params.id}});
+        await product.destroy();
         res.send({ status: "success" });
     } catch (error) {
         res.status(500).json({
