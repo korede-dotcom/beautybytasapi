@@ -256,7 +256,7 @@ product.post("/", authenticated, async (req, res) => {
             ) RETURNING id;
         `;
 
-        const [newProduct] = await Product.sequelize.query(createProductQuery, {
+        const [result] = await Product.sequelize.query(createProductQuery, {
             replacements: {
                 name: productName,
                 price: parseFloat(price),
@@ -271,11 +271,22 @@ product.post("/", authenticated, async (req, res) => {
             type: QueryTypes.INSERT
         });
 
-        // Create image records
+        const productId = result[0].id;
+
+        // Create image records using raw query
+        const createImageQuery = `
+            INSERT INTO images (id, "productId", "imageUrl", "createdAt", "updatedAt")
+            VALUES (gen_random_uuid(), :productId::uuid, :imageUrl, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING id;
+        `;
+
         const imagePromises = images.map(imageUrl => 
-            Images.create({
-                productId: newProduct.id,
-                imageUrl
+            Product.sequelize.query(createImageQuery, {
+                replacements: {
+                    productId,
+                    imageUrl
+                },
+                type: QueryTypes.INSERT
             })
         );
 
@@ -293,7 +304,7 @@ product.post("/", authenticated, async (req, res) => {
         `;
 
         const [createdProduct] = await Product.sequelize.query(fetchProductQuery, {
-            replacements: { productId: newProduct.id },
+            replacements: { productId },
             type: QueryTypes.SELECT
         });
 
