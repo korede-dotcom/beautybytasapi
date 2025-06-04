@@ -243,17 +243,30 @@ product.post("/", authenticated, async (req, res) => {
             });
         }
 
-        // Create the product
-        const newProduct = await Product.create({
-            name: productName,
-            price: parseFloat(price),
-            description,
-            categoryId,
-            totalStock: parseInt(totalStock),
-            userId: id,
-            benefits: benefits || null,
-            ingredients: ingredients || null,
-            howtouse: howtouse || "Apply this product"
+        // Create the product using raw query
+        const createProductQuery = `
+            INSERT INTO products (
+                id, name, price, description, "categoryId", "totalStock", 
+                "userId", benefits, ingredients, howtouse, status
+            ) VALUES (
+                gen_random_uuid(), :name, :price, :description, :categoryId::uuid, 
+                :totalStock, :userId::uuid, :benefits, :ingredients, :howtouse, true
+            ) RETURNING id;
+        `;
+
+        const [newProduct] = await Product.sequelize.query(createProductQuery, {
+            replacements: {
+                name: productName,
+                price: parseFloat(price),
+                description,
+                categoryId,
+                totalStock: parseInt(totalStock),
+                userId: id,
+                benefits: benefits || null,
+                ingredients: ingredients || null,
+                howtouse: howtouse || "Apply this product"
+            },
+            type: QueryTypes.INSERT
         });
 
         // Create image records
@@ -266,13 +279,20 @@ product.post("/", authenticated, async (req, res) => {
 
         await Promise.all(imagePromises);
 
-        // Fetch the created product with images
-        const createdProduct = await Product.findByPk(newProduct.id, {
-            include: [{
-                model: Images,
-                as: 'images',
-                attributes: ['imageUrl']
-            }]
+        // Fetch the created product with images using raw query
+        const fetchProductQuery = `
+            SELECT 
+                p.*,
+                COALESCE(ARRAY_AGG(i."imageUrl") FILTER (WHERE i."imageUrl" IS NOT NULL), ARRAY[]::varchar[]) as images
+            FROM products p
+            LEFT JOIN images i ON i."productId"::uuid = p.id
+            WHERE p.id = :productId::uuid
+            GROUP BY p.id;
+        `;
+
+        const [createdProduct] = await Product.sequelize.query(fetchProductQuery, {
+            replacements: { productId: newProduct.id },
+            type: QueryTypes.SELECT
         });
 
         res.json({ 
