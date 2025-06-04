@@ -1,17 +1,37 @@
 const Product = require('./Product');
-const Images = require('./Images');
+const Image = require('./Images');
+const Newsletter = require('./Newsletter');
+const Subscriber = require('./Subscriber');
+const NewsletterTemplate = require('./NewsletterTemplate');
 
-// Define associations
-Product.hasMany(Images, {
+// Product - Images association
+Product.hasMany(Image, {
     foreignKey: 'productId',
-    as: 'images'
+    as: 'images',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
 });
 
-Images.belongsTo(Product, {
-    foreignKey: 'productId'
+Image.belongsTo(Product, {
+    foreignKey: 'productId',
+    as: 'product'
+});
+
+// Newsletter associations
+Newsletter.hasMany(Subscriber, {
+    foreignKey: 'lastNewsletterId',
+    as: 'subscribers'
+});
+
+Subscriber.belongsTo(Newsletter, {
+    foreignKey: 'lastNewsletterId',
+    as: 'lastNewsletter'
 });
 
 module.exports = {
     Product,
-    Images
+    Image,
+    Newsletter,
+    Subscriber,
+    NewsletterTemplate
 }; 

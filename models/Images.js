@@ -1,32 +1,35 @@
-const {Sequelize,DataTypes} = require('sequelize');
-const connectDb = require("../config/connectDB");
-const sequelize = connectDb;
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/config');
 
-const Image = sequelize.define('image', {
+const Image = sequelize.define('Image', {
     id: {
-        type: Sequelize.UUID,
-        defaultValue: Sequelize.UUIDV4,
-        primaryKey: true,
-        foreignKey: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
-    productId:{
-        type: Sequelize.UUID,
+    productId: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: 'products',
             key: 'id'
         }
     },
-    imageUrl:{
+    url: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: false
+    },
+    alt: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    order: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     }
 }, {
-    tableName: 'images',
     timestamps: true
 });
-
-Image.sync({alter: true})
 
 module.exports = Image;
 
