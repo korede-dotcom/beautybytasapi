@@ -211,47 +211,81 @@ product.post("/image",upload.single('image'),async (req,res)  => {
 
 // create a new product by admin only
 product.post("/", authenticated, async (req, res) => {
-    // console.log("🚀 ~ product.post ~ req.files:", req.files);
-    console.log("🚀 ~ product.post ~ req.body:", req.body);
-
-    const { id } = req.user;
-    const { name, price, description, categoryId,images,totalStock,benefits,ingredients,howtouse } = req.body;
-
-    if (!name || !price || !description || !images|| !categoryId || !totalStock || !benefits || !ingredients || !howtouse) {
-        return res.status(400).send({ message: "Please enter all fields" });
-    }
-
-    // const imagePaths = req.files.map(file => file.path);
-    if (req.body.images.length === 0) {
-        return res.status(400).send('Please send array of images');
-    }
-
     try {
+        const { id } = req.user;
+        const { 
+            name, 
+            price, 
+            description, 
+            categoryId, 
+            images, 
+            totalStock, 
+            benefits, 
+            ingredients, 
+            howtouse 
+        } = req.body;
 
+        console.log("🚀 ~ product.post ~ req.body:", req.body);
+
+        // Validate required fields
+        if (!name || !price || !description || !categoryId || !totalStock) {
+            return res.status(400).json({
+                status: false,
+                message: "Please enter all required fields (name, price, description, categoryId, totalStock)"
+            });
+        }
+
+        // Validate images array
+        if (!images || !Array.isArray(images) || images.length === 0) {
+            return res.status(400).json({
+                status: false,
+                message: "Please provide at least one image"
+            });
+        }
+
+        // Create the product
         const newProduct = await Product.create({
             name,
-            price:parseFloat(price),
-            description:description,
+            price: parseFloat(price),
+            description,
             categoryId,
-            totalStock:parseInt(totalStock),
+            totalStock: parseInt(totalStock),
             userId: id,
-            benefits,
-            ingredients,
-            howtouse
+            benefits: benefits || null,
+            ingredients: ingredients || null,
+            howtouse: howtouse || "Apply this product"
         });
-        const createImages = images.forEach( async element => {
-            return await Images.create({
-                productId:newProduct.id,
-                imageUrl:element
-            })
-        });
-        // const saveImages = await Images.bulkCreate(images)
-        console.log("🚀 ~ product.post ~ saveImages:", createImages)
 
-        res.json({ message: 'Product created successfully', status:true ,newProduct,createImages });
+        // Create image records
+        const imagePromises = images.map(imageUrl => 
+            Images.create({
+                productId: newProduct.id,
+                imageUrl
+            })
+        );
+
+        await Promise.all(imagePromises);
+
+        // Fetch the created product with images
+        const createdProduct = await Product.findByPk(newProduct.id, {
+            include: [{
+                model: Images,
+                as: 'images',
+                attributes: ['imageUrl']
+            }]
+        });
+
+        res.json({ 
+            status: true,
+            message: 'Product created successfully', 
+            data: createdProduct 
+        });
     } catch (error) {
-        console.log("🚀 ~ product.post ~ error:", error.stack)
-        res.status(500).send({ error: error.message });
+        console.error("Product creation error:", error);
+        res.status(500).json({ 
+            status: false,
+            message: error.message 
+        });
     }
 });
 
