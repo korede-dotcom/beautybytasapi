@@ -247,10 +247,12 @@ product.post("/", authenticated, async (req, res) => {
         const createProductQuery = `
             INSERT INTO products (
                 id, name, price, description, "categoryId", "totalStock", 
-                "userId", benefits, ingredients, howtouse, status
+                "userId", benefits, ingredients, howtouse, status,
+                "createdAt", "updatedAt"
             ) VALUES (
                 gen_random_uuid(), :name, :price, :description, :categoryId::uuid, 
-                :totalStock, :userId::uuid, :benefits, :ingredients, :howtouse, true
+                :totalStock, :userId::uuid, :benefits, :ingredients, :howtouse, true,
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             ) RETURNING id;
         `;
 
