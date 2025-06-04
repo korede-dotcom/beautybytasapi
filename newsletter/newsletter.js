@@ -3,6 +3,10 @@ const { authenticated } = require('../middleware/auth');
 const { Newsletter, Subscriber, NewsletterTemplate } = require('../models/associations');
 const { Op } = require('sequelize');
 const { QueryTypes } = require('sequelize');
+const substackRouter = require('./substack');
+
+// Mount Substack routes
+router.use('/substack', substackRouter);
 
 // Send Newsletter
 router.post('/send', authenticated, async (req, res) => {

@@ -37,7 +37,7 @@ const Newsletter = sequelize.define('Newsletter', {
         allowNull: true
     },
     status: {
-        type: DataTypes.ENUM('draft', 'scheduled', 'sent', 'failed'),
+        type: DataTypes.ENUM('draft', 'scheduled', 'sent', 'failed', 'deleted'),
         defaultValue: 'draft'
     },
     sentCount: {
@@ -58,6 +58,15 @@ const Newsletter = sequelize.define('Newsletter', {
     },
     sentAt: {
         type: DataTypes.DATE,
+        allowNull: true
+    },
+    substackPostId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    substackUrl: {
+        type: DataTypes.STRING,
         allowNull: true
     }
 }, {
