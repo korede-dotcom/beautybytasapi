@@ -214,7 +214,7 @@ product.post("/", authenticated, async (req, res) => {
     try {
         const { id } = req.user;
         const { 
-            name, 
+            productName,
             price, 
             description, 
             categoryId, 
@@ -228,10 +228,10 @@ product.post("/", authenticated, async (req, res) => {
         console.log("🚀 ~ product.post ~ req.body:", req.body);
 
         // Validate required fields
-        if (!name || !price || !description || !categoryId || !totalStock) {
+        if (!productName || !price || !description || !categoryId || !totalStock) {
             return res.status(400).json({
                 status: false,
-                message: "Please enter all required fields (name, price, description, categoryId, totalStock)"
+                message: "Please enter all required fields (productName, price, description, categoryId, totalStock)"
             });
         }
 
@@ -245,7 +245,7 @@ product.post("/", authenticated, async (req, res) => {
 
         // Create the product
         const newProduct = await Product.create({
-            name,
+            name: productName,
             price: parseFloat(price),
             description,
             categoryId,
