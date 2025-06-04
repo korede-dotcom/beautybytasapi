@@ -307,6 +307,184 @@ router.post("/",authenticated,async (req,res) => {
     }
 })
 
+router.put("/:categoryId", authenticated, async (req, res) => {
+    try {
+        const { categoryId } = req.params;
+        const { name, status } = req.body;
+
+        // Validate required fields
+        if (!name) {
+            return res.status(400).json({
+                status: false,
+                message: "Category name is required"
+            });
+        }
+
+        // Check if category exists
+        const category = await Category.findByPk(categoryId);
+        if (!category) {
+            return res.status(404).json({
+                status: false,
+                message: "Category not found"
+            });
+        }
+
+        // Check if new name already exists (excluding current category)
+        const existingCategory = await Category.findOne({
+            where: {
+                name: name,
+                id: { [sequelize.Op.ne]: categoryId }
+            }
+        });
+
+        if (existingCategory) {
+            return res.status(400).json({
+                status: false,
+                message: "Category name already exists"
+            });
+        }
+
+        // Build the update query dynamically based on provided fields
+        let updateFields = ['name = :name'];
+        let replacements = {
+            name,
+            categoryId
+        };
+
+        // Only include status in update if it's provided
+        if (status !== undefined) {
+            updateFields.push('status = :status');
+            replacements.status = status;
+        }
+
+        // Add updatedAt to the update fields
+        updateFields.push('"updatedAt" = CURRENT_TIMESTAMP');
+
+        // Update category using raw query for better control
+        const updateQuery = `
+            UPDATE categories 
+            SET ${updateFields.join(', ')}
+            WHERE id = :categoryId::uuid
+            RETURNING 
+                id AS "categoryId",
+                name AS "categoryName",
+                status,
+                TO_CHAR("createdAt", 'YYYY-MM-DD HH24:MI:SS') AS "createdAt",
+                TO_CHAR("updatedAt", 'YYYY-MM-DD HH24:MI:SS') AS "updatedAt";
+        `;
+
+        const [updatedCategory] = await Category.sequelize.query(updateQuery, {
+            replacements,
+            type: sequelize.QueryTypes.UPDATE
+        });
+
+        if (!updatedCategory) {
+            return res.status(500).json({
+                status: false,
+                message: "Failed to update category"
+            });
+        }
+
+        res.json({
+            status: true,
+            message: "Category updated successfully",
+            data: updatedCategory
+        });
+
+    } catch (error) {
+        console.error("Category update error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
+router.delete("/:categoryId", authenticated, async (req, res) => {
+    try {
+        const { categoryId } = req.params;
+
+        // Start a transaction
+        const transaction = await Category.sequelize.transaction();
+
+        try {
+            // Check if category exists
+            const category = await Category.findByPk(categoryId);
+            if (!category) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    status: false,
+                    message: "Category not found"
+                });
+            }
+
+            // Delete all images associated with products in this category
+            const deleteImagesQuery = `
+                DELETE FROM images
+                WHERE "productId" IN (
+                    SELECT id FROM products WHERE "categoryId" = :categoryId::uuid
+                );
+            `;
+            await Category.sequelize.query(deleteImagesQuery, {
+                replacements: { categoryId },
+                type: sequelize.QueryTypes.DELETE,
+                transaction
+            });
+
+            // Delete all products in this category
+            const deleteProductsQuery = `
+                DELETE FROM products
+                WHERE "categoryId" = :categoryId::uuid;
+            `;
+            await Category.sequelize.query(deleteProductsQuery, {
+                replacements: { categoryId },
+                type: sequelize.QueryTypes.DELETE,
+                transaction
+            });
+
+            // Delete the category
+            const deleteCategoryQuery = `
+                DELETE FROM categories
+                WHERE id = :categoryId::uuid
+                RETURNING 
+                    id AS "categoryId",
+                    name AS "categoryName",
+                    status,
+                    TO_CHAR("createdAt", 'YYYY-MM-DD HH24:MI:SS') AS "createdAt",
+                    TO_CHAR("updatedAt", 'YYYY-MM-DD HH24:MI:SS') AS "updatedAt";
+            `;
+            const [deletedCategory] = await Category.sequelize.query(deleteCategoryQuery, {
+                replacements: { categoryId },
+                type: sequelize.QueryTypes.DELETE,
+                transaction
+            });
+
+            // Commit the transaction
+            await transaction.commit();
+
+            res.json({
+                status: true,
+                message: "Category and associated products deleted successfully",
+                data: deletedCategory
+            });
+
+        } catch (error) {
+            // Rollback the transaction in case of error
+            await transaction.rollback();
+            throw error;
+        }
+
+    } catch (error) {
+        console.error("Category deletion error:", error);
+        res.status(500).json({
+            status: false,
+            message: error.message
+        });
+    }
+});
+
+
+
 
 
 
